@@ -5,7 +5,11 @@ const EventEmitter = require('events');
 class EpistemicStateEngine extends EventEmitter {
   constructor(workspaceDir = process.cwd()) {
     super();
-    this.workspaceDir = workspaceDir;
+    let dir = workspaceDir;
+    if (!dir || dir === '/') {
+      dir = process.env.AETHERMIND_WORKSPACE || path.resolve(__dirname, '../..');
+    }
+    this.workspaceDir = dir;
     this.dataDir = path.join(this.workspaceDir, '.aethermind');
     this.dataFile = path.join(this.dataDir, 'telemetry.json');
     this.state = {
