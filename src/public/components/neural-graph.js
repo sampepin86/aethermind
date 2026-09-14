@@ -17,7 +17,8 @@ class EpistemicNeuralGraph {
     this.dragStartX = 0;
     this.dragStartY = 0;
 
-    this.pulsePhase = 0;
+    this.nodeWidth = 170;
+    this.nodeHeight = 52;
 
     this.initEvents();
     this.resize();
@@ -39,7 +40,7 @@ class EpistemicNeuralGraph {
 
   recenter() {
     this.offsetX = this.width / 2;
-    this.offsetY = 120;
+    this.offsetY = 80;
     this.scale = 1;
   }
 
@@ -71,7 +72,7 @@ class EpistemicNeuralGraph {
           const { x, y } = this.screenToWorld(mx, my);
           const hovered = this.getNodeAt(x, y);
           this.hoveredNodeId = hovered ? hovered.id : null;
-          this.canvas.style.cursor = hovered ? 'pointer' : 'grab';
+          this.canvas.style.cursor = hovered ? 'pointer' : (this.isDragging ? 'grabbing' : 'default');
         }
       }
     });
@@ -83,8 +84,8 @@ class EpistemicNeuralGraph {
 
     this.canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
-      const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-      const newScale = Math.min(2.5, Math.max(0.4, this.scale * zoomFactor));
+      const zoomFactor = e.deltaY < 0 ? 1.08 : 0.92;
+      const newScale = Math.min(2.0, Math.max(0.4, this.scale * zoomFactor));
 
       const rect = this.canvas.getBoundingClientRect();
       const mouseX = e.clientX - rect.left;
@@ -104,32 +105,20 @@ class EpistemicNeuralGraph {
   }
 
   getNodeAt(wx, wy) {
+    const hw = this.nodeWidth / 2;
+    const hh = this.nodeHeight / 2;
     for (let i = this.nodes.length - 1; i >= 0; i--) {
       const n = this.nodes[i];
-      const dx = wx - n.x;
-      const dy = wy - n.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist <= n.radius + 6) return n;
+      if (wx >= n.x - hw && wx <= n.x + hw && wy >= n.y - hh && wy <= n.y + hh) {
+        return n;
+      }
     }
     return null;
   }
 
   setData(nodesData, edgesData) {
-    // Preserve positions if nodes already existed
     const existingMap = new Map(this.nodes.map(n => [n.id, n]));
 
-    // Layout nodes organically or in tree levels
-    const levels = new Map();
-    const childrenMap = new Map();
-
-    nodesData.forEach(n => {
-      if (n.parentId) {
-        if (!childrenMap.has(n.parentId)) childrenMap.set(n.parentId, []);
-        childrenMap.get(n.parentId).push(n.id);
-      }
-    });
-
-    // Compute depth for each node
     const getDepth = (id, visited = new Set()) => {
       if (visited.has(id)) return 0;
       visited.add(id);
@@ -138,18 +127,18 @@ class EpistemicNeuralGraph {
       return 1 + getDepth(node.parentId, visited);
     };
 
-    this.nodes = nodesData.map((n, idx) => {
+    this.nodes = nodesData.map((n) => {
       const depth = getDepth(n.id);
       const existing = existingMap.get(n.id);
 
       let x = existing ? existing.x : 0;
-      let y = existing ? existing.y : depth * 140;
+      let y = existing ? existing.y : depth * 130;
 
       if (!existing) {
-        const siblingsAtDepth = nodesData.filter(item => getDepth(item.id) === depth);
-        const sibIndex = siblingsAtDepth.findIndex(s => s.id === n.id);
-        const totalSib = siblingsAtDepth.length;
-        const spacing = 220;
+        const siblings = nodesData.filter(item => getDepth(item.id) === depth);
+        const sibIndex = siblings.findIndex(s => s.id === n.id);
+        const totalSib = siblings.length;
+        const spacing = 210;
         x = (sibIndex - (totalSib - 1) / 2) * spacing;
       }
 
@@ -157,9 +146,6 @@ class EpistemicNeuralGraph {
         ...n,
         x,
         y,
-        vx: 0,
-        vy: 0,
-        radius: n.type === 'hypothesis' ? 34 : 28,
         depth
       };
     });
@@ -168,7 +154,6 @@ class EpistemicNeuralGraph {
   }
 
   animate() {
-    this.pulsePhase += 0.035;
     this.render();
     requestAnimationFrame(() => this.animate());
   }
@@ -178,129 +163,167 @@ class EpistemicNeuralGraph {
     ctx.save();
     ctx.clearRect(0, 0, this.width, this.height);
 
-    // Camera transform
+    // Subtle dark background grid
+    this.drawSubtleGrid(ctx);
+
     ctx.translate(this.offsetX, this.offsetY);
     ctx.scale(this.scale, this.scale);
 
     const nodeMap = new Map(this.nodes.map(n => [n.id, n]));
 
-    // Draw Edges
+    // Draw Edges (Clean architectural lines)
     this.edges.forEach(edge => {
       const src = nodeMap.get(edge.source);
       const tgt = nodeMap.get(edge.target);
       if (!src || !tgt) return;
 
-      const dx = tgt.x - src.x;
-      const dy = tgt.y - src.y;
-      const angle = Math.atan2(dy, dx);
-      const dist = Math.sqrt(dx * dx + dy * dy);
+      const startY = src.y + this.nodeHeight / 2;
+      const endY = tgt.y - this.nodeHeight / 2;
 
       ctx.save();
       ctx.beginPath();
-      ctx.moveTo(src.x, src.y);
-      ctx.lineTo(tgt.x, tgt.y);
+      ctx.moveTo(src.x, startY);
 
-      let strokeStyle = 'rgba(255, 255, 255, 0.15)';
-      if (edge.relationship === 'supports') strokeStyle = 'rgba(16, 185, 129, 0.35)';
-      if (edge.relationship === 'refutes') strokeStyle = 'rgba(244, 63, 94, 0.35)';
+      // Smooth vertical cubic bezier
+      const midY = (startY + endY) / 2;
+      ctx.bezierCurveTo(src.x, midY, tgt.x, midY, tgt.x, endY);
 
-      ctx.strokeStyle = strokeStyle;
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = edge.relationship === 'supports' ? 'rgba(16, 185, 129, 0.45)' : 'rgba(255, 255, 255, 0.15)';
+      ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      // Flow particle animation along edge
-      const particlePos = (this.pulsePhase % 1);
-      const px = src.x + dx * particlePos;
-      const py = src.y + dy * particlePos;
+      // Clean arrow tip at target
       ctx.beginPath();
-      ctx.arc(px, py, 3, 0, Math.PI * 2);
-      ctx.fillStyle = '#00f2fe';
-      ctx.shadowColor = '#00f2fe';
-      ctx.shadowBlur = 8;
+      ctx.moveTo(tgt.x, endY);
+      ctx.lineTo(tgt.x - 4, endY - 6);
+      ctx.lineTo(tgt.x + 4, endY - 6);
+      ctx.fillStyle = ctx.strokeStyle;
       ctx.fill();
 
       ctx.restore();
     });
 
-    // Draw Nodes
+    // Draw Nodes (Crisp Linear/React-Flow card style)
+    const hw = this.nodeWidth / 2;
+    const hh = this.nodeHeight / 2;
+
     this.nodes.forEach(node => {
       const isSelected = node.id === this.selectedNodeId;
       const isHovered = node.id === this.hoveredNodeId;
-      const r = node.radius + (isHovered ? 4 : 0);
 
       ctx.save();
 
-      // Outer glow ring
-      let glowColor = 'rgba(0, 242, 254, 0.4)';
-      let borderColor = '#00f2fe';
-      let fillColor = '#0f172a';
+      // Card boundary
+      const x = node.x - hw;
+      const y = node.y - hh;
+      const r = 6;
 
-      if (node.status === 'refuted') {
-        glowColor = 'rgba(244, 63, 94, 0.4)';
-        borderColor = '#f43f5e';
-      } else if (node.type === 'intervention') {
-        glowColor = 'rgba(157, 78, 221, 0.4)';
-        borderColor = '#c084fc';
-      } else if (node.type === 'observation') {
-        glowColor = 'rgba(16, 185, 129, 0.4)';
-        borderColor = '#10b981';
-      }
-
-      ctx.shadowColor = glowColor;
-      ctx.shadowBlur = isSelected ? 24 : (isHovered ? 16 : 8);
-
-      // Node Body Circle
+      // Card Background
       ctx.beginPath();
-      ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
-      ctx.fillStyle = fillColor;
+      this.roundRect(ctx, x, y, this.nodeWidth, this.nodeHeight, r);
+      ctx.fillStyle = isSelected ? '#1c202d' : (isHovered ? '#191c26' : '#13151d');
       ctx.fill();
 
-      // Border
-      ctx.lineWidth = isSelected ? 3.5 : 2;
+      // Card Border
+      let borderColor = 'rgba(255, 255, 255, 0.1)';
+      if (isSelected) borderColor = '#3b82f6';
+      else if (node.status === 'refuted') borderColor = 'rgba(244, 63, 94, 0.5)';
+      else if (node.type === 'intervention') borderColor = 'rgba(99, 102, 241, 0.4)';
+      else if (node.type === 'observation') borderColor = 'rgba(16, 185, 129, 0.4)';
+
+      ctx.lineWidth = isSelected ? 2 : 1;
       ctx.strokeStyle = borderColor;
       ctx.stroke();
 
-      // Confidence Arc Indicator
-      if (node.confidence) {
-        ctx.beginPath();
-        const startAngle = -Math.PI / 2;
-        const endAngle = startAngle + (Math.PI * 2 * node.confidence);
-        ctx.arc(node.x, node.y, r + 4, startAngle, endAngle);
-        ctx.lineWidth = 2.5;
-        ctx.strokeStyle = borderColor;
-        ctx.stroke();
-      }
-
-      // Icon / Glyph
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '600 13px Outfit, sans-serif';
-      ctx.textAlign = 'center';
+      // Top Header: Type Pill + Confidence
+      ctx.font = '600 8px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
 
-      let glyph = 'H';
-      if (node.type === 'intervention') glyph = '⚡';
-      else if (node.type === 'observation') glyph = '👁';
-      else if (node.status === 'refuted') glyph = '✘';
+      let pillBg = 'rgba(59, 130, 246, 0.15)';
+      let pillFg = '#3b82f6';
+      let typeLabel = 'HYPOTHESIS';
 
-      ctx.fillText(glyph, node.x, node.y - (node.type === 'hypothesis' ? 5 : 0));
-
-      if (node.type === 'hypothesis' && node.confidence) {
-        ctx.font = '500 9px "JetBrains Mono", monospace';
-        ctx.fillStyle = borderColor;
-        ctx.fillText(`${Math.round(node.confidence * 100)}%`, node.x, node.y + 11);
+      if (node.status === 'refuted') {
+        pillBg = 'rgba(244, 63, 94, 0.15)';
+        pillFg = '#f43f5e';
+        typeLabel = 'REFUTED';
+      } else if (node.type === 'intervention') {
+        pillBg = 'rgba(99, 102, 241, 0.15)';
+        pillFg = '#818cf8';
+        typeLabel = 'INTERVENTION';
+      } else if (node.type === 'observation') {
+        pillBg = 'rgba(16, 185, 129, 0.15)';
+        pillFg = '#34d399';
+        typeLabel = 'OBSERVATION';
       }
 
-      // Node Label below
-      ctx.font = '500 11px Outfit, sans-serif';
-      ctx.fillStyle = isSelected ? '#ffffff' : '#94a3b8';
-      const labelText = node.title.length > 24 ? node.title.substring(0, 22) + '...' : node.title;
-      ctx.fillText(labelText, node.x, node.y + r + 18);
+      // Draw Type Pill
+      const pillW = ctx.measureText(typeLabel).width + 8;
+      ctx.beginPath();
+      this.roundRect(ctx, x + 8, y + 8, pillW, 14, 3);
+      ctx.fillStyle = pillBg;
+      ctx.fill();
+      ctx.fillStyle = pillFg;
+      ctx.fillText(typeLabel, x + 12, y + 15);
+
+      // Confidence badge on the right
+      if (node.confidence) {
+        ctx.font = '500 8.5px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#64748b';
+        ctx.textAlign = 'right';
+        ctx.fillText(`${Math.round(node.confidence * 100)}%`, x + this.nodeWidth - 10, y + 15);
+      }
+
+      // Title text (Truncated cleanly)
+      ctx.font = '500 10.5px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillStyle = isSelected ? '#ffffff' : '#cbd5e1';
+      ctx.textAlign = 'left';
+
+      let title = node.title || 'Untitled Node';
+      if (ctx.measureText(title).width > this.nodeWidth - 20) {
+        while (title.length > 3 && ctx.measureText(title + '...').width > this.nodeWidth - 20) {
+          title = title.slice(0, -1);
+        }
+        title += '...';
+      }
+      ctx.fillText(title, x + 10, y + 36);
 
       ctx.restore();
     });
 
     ctx.restore();
+  }
+
+  drawSubtleGrid(ctx) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.02)';
+    ctx.lineWidth = 1;
+    const step = 32;
+    const offX = (this.offsetX * this.scale) % step;
+    const offY = (this.offsetY * this.scale) % step;
+
+    for (let x = offX; x < this.width; x += step) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, this.height);
+      ctx.stroke();
+    }
+    for (let y = offY; y < this.height; y += step) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(this.width, y);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  roundRect(ctx, x, y, width, height, radius) {
+    ctx.moveTo(x + radius, y);
+    ctx.arcTo(x + width, y, x + width, y + height, radius);
+    ctx.arcTo(x + width, y + height, x, y + height, radius);
+    ctx.arcTo(x, y + height, x, y, radius);
+    ctx.arcTo(x, y, x + width, y, radius);
   }
 }
 
