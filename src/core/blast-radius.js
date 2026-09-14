@@ -8,7 +8,7 @@ class BlastRadiusAnalyzer {
 
   // Scan workspace for code files (excluding node_modules, .git, dist, etc.)
   collectWorkspaceFiles(dir = this.workspaceDir, fileList = []) {
-    const ignored = new Set(['node_modules', '.git', '.aethermind', 'dist', 'build', '.DS_Store']);
+    const ignored = new Set(['node_modules', '.git', '.aethermind', 'dist', 'build', '.DS_Store', 'vendor', '.next', 'archive', 'coverage', 'logs', 'storage']);
     if (!fs.existsSync(dir)) return fileList;
 
     const entries = fs.readdirSync(dir, { withFileTypes: true });
