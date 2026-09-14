@@ -3,22 +3,28 @@ const path = require('path');
 const BlastRadiusAnalyzer = require('../core/blast-radius');
 const RealityProbeMatrix = require('../core/reality-probe');
 const CognitiveDriftDetector = require('../core/drift-detector');
+const GitObserver = require('../core/git-observer');
+const UserIntentEngine = require('../core/intent-engine');
+const AgentGate = require('../core/agent-gate');
 
 function createApiRoutes(stateEngine, workspaceDir) {
   const router = express.Router();
   const blastAnalyzer = new BlastRadiusAnalyzer(workspaceDir);
   const driftDetector = new CognitiveDriftDetector(stateEngine);
+  const gitObserver = new GitObserver(workspaceDir);
+  const intentEngine = new UserIntentEngine(workspaceDir);
+  const agentGate = new AgentGate(stateEngine, workspaceDir, intentEngine);
 
   router.get('/state', (req, res) => {
     res.json(stateEngine.getState());
   });
 
   router.post('/node', (req, res) => {
-    const { type, title, details, status, confidence, parentId, metadata } = req.body;
+    const { type, title, details, status, confidence, parentId, metadata, agent } = req.body;
     if (!title || !type) {
       return res.status(400).json({ error: 'Missing title or type' });
     }
-    const node = stateEngine.addNode({ type, title, details, status, confidence, parentId, metadata });
+    const node = stateEngine.addNode({ type, title, details, status, confidence, parentId, metadata, agent });
     res.status(201).json(node);
   });
 
@@ -55,10 +61,77 @@ function createApiRoutes(stateEngine, workspaceDir) {
     res.json(report);
   });
 
+  // Intent & Scope Protection Endpoints
+  router.get('/intent', (req, res) => {
+    res.json({ intent: intentEngine.getIntent() });
+  });
+
+  router.post('/intent', (req, res) => {
+    const { prompt, scope, allowedRelatedChanges, testsAllowed, dependenciesAllowed, agent } = req.body;
+    const intent = intentEngine.declareIntent({
+      prompt,
+      scope,
+      allowedRelatedChanges,
+      testsAllowed,
+      dependenciesAllowed,
+      agent
+    });
+    stateEngine.setIntent(intent);
+    res.json({ message: 'User intent declared successfully', intent });
+  });
+
+  // Agent Gate Endpoints (Preflight & Postflight)
+  router.post('/gate/preflight', (req, res) => {
+    const { targetFiles, targetSymbols, scope, agent } = req.body;
+    const report = agentGate.evaluatePreflight({
+      targetFiles: targetFiles || [],
+      targetSymbols: targetSymbols || [],
+      scope,
+      agent
+    });
+    res.json(report);
+  });
+
+  router.post('/gate/postflight', (req, res) => {
+    const { modifiedFiles, executedTests, agent } = req.body;
+    const report = agentGate.evaluatePostflight({
+      modifiedFiles: modifiedFiles || [],
+      executedTests: executedTests || [],
+      agent
+    });
+    res.json(report);
+  });
+
+  // Git Delta & Status
+  router.get('/git/delta', (req, res) => {
+    const delta = gitObserver.computeDelta();
+    const scopeValidation = intentEngine.validateChangeSurface(delta.rawFiles.map(f => f.file));
+    res.json({ delta, scopeValidation });
+  });
+
+  router.get('/git/status', (req, res) => {
+    res.json(gitObserver.getWorkingTreeStatus());
+  });
+
+  // Observability Analytics
+  router.get('/analytics', (req, res) => {
+    res.json(stateEngine.getObservabilityAnalytics());
+  });
+
   router.post('/probe', async (req, res) => {
-    const { probeType, target, options } = req.body;
+    const { probeType, target, options, recordFact, assumptionId, parentNodeId } = req.body;
     let result = null;
     try {
+      if (recordFact) {
+        const factOutcome = await RealityProbeMatrix.probeAndRecordFact(stateEngine, {
+          probeType,
+          target,
+          assumptionId,
+          parentNodeId
+        });
+        return res.json(factOutcome);
+      }
+
       if (probeType === 'port') {
         result = await RealityProbeMatrix.checkPort(parseInt(target, 10));
       } else if (probeType === 'command') {
@@ -68,7 +141,7 @@ function createApiRoutes(stateEngine, workspaceDir) {
       } else if (probeType === 'env') {
         result = RealityProbeMatrix.checkEnvVar(target);
       } else if (probeType === 'exec') {
-        result = RealityProbeMatrix.runShellAssertion(target, options?.regex);
+        result = RealityProbeMatrix.runShellAssertion(target, options?.regex, workspaceDir);
       } else {
         return res.status(400).json({ error: `Unknown probeType: ${probeType}` });
       }

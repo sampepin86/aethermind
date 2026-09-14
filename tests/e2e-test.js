@@ -234,7 +234,57 @@ async function runTests() {
     });
   });
 
-  // 7. CLI Subcommand Executions
+  // 7. Intent, Agent Gate & Git Delta REST Endpoints
+  await checkAsync('POST /api/intent and GET /api/intent register scope boundaries', async () => {
+    const postRes = await request('/api/intent', {
+      method: 'POST',
+      body: {
+        prompt: 'E2E: Fix authentication token',
+        scope: ['sample-workspace/auth.js']
+      }
+    });
+    assert.strictEqual(postRes.status, 200);
+    assert(postRes.data.intent.scope.includes('sample-workspace/auth.js'));
+
+    const getRes = await request('/api/intent');
+    assert.strictEqual(getRes.status, 200);
+    assert.strictEqual(getRes.data.intent.prompt, 'E2E: Fix authentication token');
+  });
+
+  await checkAsync('POST /api/gate/preflight validates targets against scope & blast radius', async () => {
+    const res = await request('/api/gate/preflight', {
+      method: 'POST',
+      body: {
+        targetFiles: ['sample-workspace/auth.js'],
+        scope: ['sample-workspace/auth.js']
+      }
+    });
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.data.allowed, true);
+    assert.strictEqual(res.data.gate, 'PREFLIGHT');
+  });
+
+  await checkAsync('POST /api/gate/postflight validates syntax and executed tests', async () => {
+    const res = await request('/api/gate/postflight', {
+      method: 'POST',
+      body: {
+        modifiedFiles: ['sample-workspace/auth.js'],
+        executedTests: ['sample-workspace/auth.test.js']
+      }
+    });
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.data.gate, 'POSTFLIGHT');
+    assert.strictEqual(res.data.allowed, true);
+  });
+
+  await checkAsync('GET /api/git/delta calculates workspace changes vs scope', async () => {
+    const res = await request('/api/git/delta');
+    assert.strictEqual(res.status, 200);
+    assert(res.data.delta);
+    assert(res.data.scopeValidation);
+  });
+
+  // 8. CLI Subcommand Executions
   check('CLI "status" command runs cleanly', () => {
     const out = execSync('node bin/aethermind.js status', { encoding: 'utf8' });
     assert(out.includes('Cognitive State Overview'));
@@ -257,6 +307,18 @@ async function runTests() {
     const out = execSync('node bin/aethermind.js probe', { encoding: 'utf8' });
     assert(out.includes('System Health Probe'));
     assert(out.includes('Node Runtime'));
+  });
+
+  check('CLI "gate" preflight command runs cleanly', () => {
+    const out = execSync('node bin/aethermind.js gate pre sample-workspace/auth.js --scope sample-workspace/auth.js', { encoding: 'utf8' });
+    assert(out.includes('PREFLIGHT GATE'));
+    assert(out.includes('Target File'));
+  });
+
+  check('CLI "delta" command runs cleanly', () => {
+    const out = execSync('node bin/aethermind.js delta', { encoding: 'utf8' });
+    assert(out.includes('Workspace Git Delta Inspector'));
+    assert(out.includes('Head Commit'));
   });
 
   // Close server

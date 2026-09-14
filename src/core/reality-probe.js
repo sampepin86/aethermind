@@ -70,26 +70,110 @@ class RealityProbeMatrix {
     return { passed: false, message: `Env var ${varName} is NOT set.` };
   }
 
+  static sanitizeOutput(text) {
+    if (!text) return '';
+    return text
+      .replace(/(?:password|passwd|secret|token|api[_-]?key|bearer\s+[a-zA-Z0-9_\-\.]+)=([^\s&]+)/gi, '$1=***REDACTED***')
+      .substring(0, 500);
+  }
+
+  static isSafeCommand(command) {
+    // Only allow safe inspection and verification binaries
+    const safeBinaries = new Set([
+      'git', 'node', 'npm', 'npx', 'python', 'python3', 'which', 'where',
+      'echo', 'test', 'cat', 'ls', 'dir', 'uname', 'pwd', 'head', 'tail', 'grep'
+    ]);
+
+    // Disallow dangerous shell metacharacters for arbitrary chained injection
+    if (/[;&|`$><]/.test(command)) {
+      return { safe: false, reason: 'Command contains chained shell metacharacters (&, ;, |, `, $, >, <).' };
+    }
+
+    const firstToken = command.trim().split(/\s+/)[0];
+    const baseBin = path.basename(firstToken).replace(/\.(?:exe|cmd|bat)$/i, '');
+
+    if (!safeBinaries.has(baseBin)) {
+      return { safe: false, reason: `Binary '${baseBin}' is not in the approved safe probe allowlist.` };
+    }
+
+    return { safe: true };
+  }
+
   static runShellAssertion(command, expectedRegex = null, cwd = process.cwd()) {
+    const safety = this.isSafeCommand(command);
+    if (!safety.safe) {
+      return {
+        passed: false,
+        sandboxed: true,
+        output: '',
+        message: `Probe Security Sandbox Blocked Execution: ${safety.reason}`
+      };
+    }
+
     try {
-      const stdout = execSync(command, { encoding: 'utf8', timeout: 5000, cwd, stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+      const stdout = execSync(command, {
+        encoding: 'utf8',
+        timeout: 4000,
+        cwd,
+        maxBuffer: 1024 * 1024,
+        stdio: ['pipe', 'pipe', 'pipe']
+      }).trim();
+
+      const sanitized = this.sanitizeOutput(stdout);
+
       if (expectedRegex) {
         const regex = new RegExp(expectedRegex);
         const matches = regex.test(stdout);
         return {
           passed: matches,
-          output: stdout.substring(0, 200),
+          sandboxed: true,
+          output: sanitized,
           message: matches ? `Command succeeded and matched '${expectedRegex}'` : `Command output did not match '${expectedRegex}'`
         };
       }
-      return { passed: true, output: stdout.substring(0, 200), message: `Command executed with exit code 0` };
+      return { passed: true, sandboxed: true, output: sanitized, message: `Command executed with exit code 0` };
     } catch (err) {
       return {
         passed: false,
-        output: err.stdout ? err.stdout.substring(0, 200) : err.message,
+        sandboxed: true,
+        output: this.sanitizeOutput(err.stdout ? err.stdout : err.message),
         message: `Command failed with code ${err.status || 1}`
       };
     }
+  }
+
+  static async probeAndRecordFact(stateEngine, { probeType, target, assumptionId = null, parentNodeId = null }) {
+    let result = null;
+    if (probeType === 'port') {
+      result = await this.checkPort(parseInt(target, 10));
+    } else if (probeType === 'syntax') {
+      result = this.checkSyntax(path.resolve(stateEngine.workspaceDir, target));
+    } else if (probeType === 'command') {
+      result = this.checkCommand(target);
+    } else if (probeType === 'env') {
+      result = this.checkEnvVar(target);
+    } else if (probeType === 'exec') {
+      result = this.runShellAssertion(target, null, stateEngine.workspaceDir);
+    } else {
+      throw new Error(`Unknown probe type: ${probeType}`);
+    }
+
+    // If linked to an assumption in the ledger, update it with factual proof
+    if (assumptionId) {
+      stateEngine.verifyAssumption(assumptionId, result.passed, result.message || result.output || '');
+    }
+
+    // Record an empirical observation node into the reasoning graph
+    const obsNode = stateEngine.addNode({
+      type: 'observation',
+      title: `Empirical Probe: [${probeType.toUpperCase()}] ${target}`,
+      details: `Reality probe result: ${result.passed ? 'PASSED' : 'FAILED'} — ${result.message || result.output || ''}`,
+      status: result.passed ? 'confirmed' : 'refuted',
+      confidence: 0.99,
+      parentId: parentNodeId
+    });
+
+    return { result, observationNode: obsNode };
   }
 
   static async runSystemHealthCheck(workspaceDir = process.cwd()) {

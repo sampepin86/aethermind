@@ -7,6 +7,10 @@ const BlastRadiusAnalyzer = require('../src/core/blast-radius');
 const RealityProbeMatrix = require('../src/core/reality-probe');
 const CognitiveDriftDetector = require('../src/core/drift-detector');
 const EpistemicStateEngine = require('../src/core/state-engine');
+const GitObserver = require('../src/core/git-observer');
+const UserIntentEngine = require('../src/core/intent-engine');
+const AgentGate = require('../src/core/agent-gate');
+const AetherMindMcpServer = require('../src/mcp/server');
 const { loadDemoSimulation } = require('../src/server/routes');
 
 // ANSI Color Helpers
@@ -254,6 +258,133 @@ async function main() {
       break;
     }
 
+    case 'intent': {
+      banner();
+      const promptText = args[1] || '';
+      let scope = [];
+      const scopeIdx = args.indexOf('--scope');
+      if (scopeIdx !== -1 && args[scopeIdx + 1]) {
+        scope = args[scopeIdx + 1].split(',').map(s => s.trim());
+      }
+      const engine = new EpistemicStateEngine(workspaceDir);
+      const intentEngine = new UserIntentEngine(workspaceDir);
+      const intent = intentEngine.declareIntent({
+        prompt: promptText,
+        scope,
+        dependenciesAllowed: args.includes('--allow-deps'),
+        testsAllowed: !args.includes('--no-tests')
+      });
+      engine.setIntent(intent);
+      console.log(`\n  ${c.green}✔ Declared User Scope Intent:${c.reset}`);
+      console.log(`  Scope files:  ${c.bright}${c.cyan}[${intent.scope.join(', ')}]${c.reset}`);
+      console.log(`  Prompt:       ${c.gray}"${intent.prompt}"${c.reset}\n`);
+      break;
+    }
+
+    case 'preflight':
+    case 'gate': {
+      banner();
+      const sub = args[1]; // 'pre' or 'post'
+      const targetFile = (sub === 'pre' || sub === 'post') ? args[2] : args[1];
+
+      const engine = new EpistemicStateEngine(workspaceDir);
+      const intentEngine = new UserIntentEngine(workspaceDir);
+      const gate = new AgentGate(engine, workspaceDir, intentEngine);
+
+      if (sub === 'post' || command === 'postflight') {
+        const testsIdx = args.indexOf('--tests');
+        const executedTests = (testsIdx !== -1 && args[testsIdx + 1])
+          ? args[testsIdx + 1].split(',').map(t => t.trim())
+          : [];
+
+        const report = gate.evaluatePostflight({ executedTests });
+        const col = report.allowed ? c.green : c.red;
+        console.log(`\n  ${col}${c.bright}POSTFLIGHT GATE: [${report.status}]${c.reset}`);
+        console.log(`  ${c.gray}──────────────────────────────────────────────────────────────────${c.reset}`);
+        console.log(`  Modified Files: ${report.actualModifiedFiles.length}`);
+        report.checks.forEach(chk => {
+          console.log(`  ${chk.passed ? c.green + '✔' : c.red + '✘'} [${chk.name}]: ${chk.message}${c.reset}`);
+        });
+        if (report.violations.length > 0) {
+          console.log(`\n  ${c.red}${c.bright}Violations (${report.violations.length}):${c.reset}`);
+          report.violations.forEach(v => console.log(`    ${c.red}• ${v}${c.reset}`));
+        }
+        if (report.recommendations.length > 0) {
+          console.log(`\n  ${c.yellow}Recommendations:${c.reset}`);
+          report.recommendations.forEach(r => console.log(`    ${c.yellow}→ ${r}${c.reset}`));
+        }
+        console.log('');
+        if (!report.allowed) process.exit(1);
+        break;
+      }
+
+      // Default: Preflight Gate
+      if (!targetFile) {
+        console.log(`\n  ${c.red}Error:${c.reset} Specify target file(s) for preflight gate.`);
+        console.log(`  Usage: ${c.yellow}aethermind gate pre <file> [--scope file1,file2]${c.reset}\n`);
+        process.exit(1);
+      }
+
+      let scope = [targetFile];
+      const scopeIdx = args.indexOf('--scope');
+      if (scopeIdx !== -1 && args[scopeIdx + 1]) {
+        scope = args[scopeIdx + 1].split(',').map(s => s.trim());
+      }
+
+      const report = gate.evaluatePreflight({
+        targetFiles: [targetFile],
+        scope
+      });
+
+      const col = report.allowed ? c.green : c.red;
+      console.log(`\n  ${col}${c.bright}PREFLIGHT GATE: [${report.status}]${c.reset}`);
+      console.log(`  ${c.gray}──────────────────────────────────────────────────────────────────${c.reset}`);
+      console.log(`  Target File:    ${c.bright}${targetFile}${c.reset}`);
+      console.log(`  Blast Risk:     ${report.highestRiskScore}/100 [${report.highestRiskLevel}]`);
+      console.log(`  Gate Decision:  ${report.allowed ? c.green + 'ALLOWED TO PROCEED' : c.red + 'BLOCKED'}${c.reset}\n`);
+
+      report.checks.forEach(chk => {
+        console.log(`  ${chk.passed ? c.green + '✔' : c.red + '✘'} [${chk.name}]: ${chk.message}${c.reset}`);
+      });
+
+      if (report.requiredActions.length > 0) {
+        console.log(`\n  ${c.yellow}${c.bright}Mandatory Gate Requirements:${c.reset}`);
+        report.requiredActions.forEach(a => console.log(`    ${c.yellow}• ${a}${c.reset}`));
+      }
+      console.log('');
+      if (!report.allowed) process.exit(1);
+      break;
+    }
+
+    case 'delta': {
+      banner();
+      const observer = new GitObserver(workspaceDir);
+      const delta = observer.computeDelta();
+      console.log(`\n  ${c.bright}Workspace Git Delta Inspector:${c.reset}`);
+      console.log(`  ${c.gray}──────────────────────────────────────────────────────────────────${c.reset}`);
+      console.log(`  Head Commit:    ${c.cyan}${observer.getHeadCommit() || 'N/A'}${c.reset}`);
+      console.log(`  Modified Files: ${delta.totalCurrentChanges}`);
+      if (delta.diffStat.stat) {
+        console.log(`\n  ${c.gray}${delta.diffStat.stat}${c.reset}`);
+      }
+      if (delta.rawFiles.length > 0) {
+        console.log(`\n  ${c.bright}Modified Files List:${c.reset}`);
+        delta.rawFiles.forEach(f => {
+          console.log(`    ${c.yellow}• [${f.statusText}] ${f.file}${c.reset}`);
+        });
+      } else {
+        console.log(`\n  ${c.green}✔ Working tree clean. No active deltas.${c.reset}`);
+      }
+      console.log('');
+      break;
+    }
+
+    case 'mcp': {
+      const server = new AetherMindMcpServer(workspaceDir);
+      server.startStdio();
+      return;
+    }
+
     case 'demo': {
       banner();
       const engine = new EpistemicStateEngine(workspaceDir);
@@ -282,12 +413,17 @@ async function main() {
       console.log(`  Assumptions Track:  ${c.green}${state.metrics.verifiedAssumptionsCount} verified${c.reset}, ${c.yellow}${state.metrics.unverifiedAssumptionsCount} unverified${c.reset}`);
       
       console.log(`\n  ${c.bright}Available Commands:${c.reset}`);
-      console.log(`    ${c.cyan}aethermind ui${c.reset}                    Launch the futuristic Graphical Interface`);
-      console.log(`    ${c.cyan}aethermind blast <file> [sym]${c.reset}    Simulate blast radius of code edit`);
-      console.log(`    ${c.cyan}aethermind record <type> <title>${c.reset} Log hypothesis / observation`);
-      console.log(`    ${c.cyan}aethermind probe [check] [target]${c.reset}Run sanity check against environment`);
-      console.log(`    ${c.cyan}aethermind audit${c.reset}                 Check epistemic drift & reasoning loops`);
-      console.log(`    ${c.cyan}aethermind demo${c.reset}                  Load complete demo scenario & UI`);
+      console.log(`    ${c.cyan}aethermind ui${c.reset}                         Launch the High-Readability Web Studio`);
+      console.log(`    ${c.cyan}aethermind gate pre <file> [scope]${c.reset}    Enforce Preflight Gate before code edit`);
+      console.log(`    ${c.cyan}aethermind gate post [--tests <t>]${c.reset}    Enforce Postflight Gate after modifications`);
+      console.log(`    ${c.cyan}aethermind intent "<prompt>" [scope]${c.reset}  Declare explicit user intent & allowed scope`);
+      console.log(`    ${c.cyan}aethermind delta${c.reset}                      Inspect workspace changes & detect unexpected files`);
+      console.log(`    ${c.cyan}aethermind blast <file> [sym]${c.reset}         Scan blast radius, dynamic caveats & risk`);
+      console.log(`    ${c.cyan}aethermind record <type> <title>${c.reset}      Log hypothesis, intervention, or observation`);
+      console.log(`    ${c.cyan}aethermind probe [check] [target]${c.reset}     Run safe reality check & bind proof`);
+      console.log(`    ${c.cyan}aethermind audit${c.reset}                      Audit cognitive drift & thrashing loops`);
+      console.log(`    ${c.cyan}aethermind mcp${c.reset}                        Run stdio Model Context Protocol (MCP) server`);
+      console.log(`    ${c.cyan}aethermind demo${c.reset}                       Load synthetic flight scenario & launch UI`);
       console.log('');
       break;
     }

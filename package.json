@@ -7,11 +7,15 @@
     "aethermind": "./bin/aethermind.js"
   },
   "scripts": {
-    "test": "node tests/e2e-test.js",
+    "test": "node tests/e2e-test.js && node tests/adversarial-test.js",
+    "test:adversarial": "node tests/adversarial-test.js",
     "start": "node bin/aethermind.js ui",
     "demo": "node bin/aethermind.js demo",
     "status": "node bin/aethermind.js status",
-    "audit": "node bin/aethermind.js audit"
+    "audit": "node bin/aethermind.js audit",
+    "gate": "node bin/aethermind.js gate",
+    "delta": "node bin/aethermind.js delta",
+    "mcp": "node bin/aethermind-mcp.js"
   },
   "keywords": [
     "ai-agent",

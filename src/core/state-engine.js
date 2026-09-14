@@ -28,7 +28,9 @@ class EpistemicStateEngine extends EventEmitter {
       edges: [],
       timeline: [],
       assumptions: [],
-      filesTracked: {} // filepath -> { readAt, hash, mtime, lastModifiedBy }
+      filesTracked: {}, // filepath -> { readAt, hash, mtime, lastModifiedBy }
+      intent: null, // active declared user intent
+      observabilityLedger: [] // structured action & telemetry events for cross-model flight audit
     };
 
     this.ensureInitialized();
@@ -91,7 +93,7 @@ class EpistemicStateEngine extends EventEmitter {
     }
   }
 
-  addNode({ type, title, details, status = 'active', confidence = 0.85, parentId = null, metadata = {} }) {
+  addNode({ type, title, details, status = 'active', confidence = 0.85, parentId = null, metadata = {}, agent = null }) {
     const id = 'node_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
     const node = {
       id,
@@ -102,6 +104,7 @@ class EpistemicStateEngine extends EventEmitter {
       confidence: Math.max(0, Math.min(1, confidence)),
       timestamp: new Date().toISOString(),
       parentId,
+      agent: agent || { name: this.state.session.agentName || 'Agent', model: 'default' },
       metadata
     };
 
@@ -252,12 +255,99 @@ class EpistemicStateEngine extends EventEmitter {
     return this.state;
   }
 
+  setIntent(intent) {
+    this.state.intent = intent;
+    this.saveState();
+  }
+
+  recordObservabilityEvent({
+    agent = { name: 'agent', model: 'default' },
+    action = 'action',
+    files = [],
+    symbols = [],
+    reason = '',
+    hypothesisId = null,
+    blastRadiusScore = null,
+    testsExecuted = [],
+    result = 'unknown',
+    details = {}
+  }) {
+    const event = {
+      id: 'obs_evt_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 5),
+      timestamp: new Date().toISOString(),
+      agent,
+      action,
+      files,
+      symbols,
+      reason,
+      hypothesisId,
+      blastRadiusScore,
+      testsExecuted,
+      result,
+      details
+    };
+
+    if (!Array.isArray(this.state.observabilityLedger)) {
+      this.state.observabilityLedger = [];
+    }
+    this.state.observabilityLedger.push(event);
+    if (this.state.observabilityLedger.length > 500) {
+      this.state.observabilityLedger.shift();
+    }
+    this.saveState();
+    return event;
+  }
+
+  getObservabilityAnalytics() {
+    const events = this.state.observabilityLedger || [];
+    const totalEvents = events.length;
+
+    // Assumption veracity rate
+    const totalAssumptions = this.state.assumptions.length;
+    const verifiedAssumptions = this.state.assumptions.filter(a => a.verified).length;
+    const assumptionVeracityRate = totalAssumptions > 0
+      ? Math.round((verifiedAssumptions / totalAssumptions) * 100)
+      : 100;
+
+    // File problem hotspots
+    const fileActionCounts = {};
+    events.forEach(e => {
+      (e.files || []).forEach(f => {
+        fileActionCounts[f] = (fileActionCounts[f] || 0) + 1;
+      });
+    });
+
+    const frequentFiles = Object.entries(fileActionCounts)
+      .map(([file, count]) => ({ file, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    // Regressions: interventions where followed by refuted observation
+    let regressionsDetected = 0;
+    const nodes = this.state.nodes || [];
+    for (let i = 0; i < nodes.length - 1; i++) {
+      if (nodes[i].type === 'intervention' && nodes[i + 1].type === 'observation' && nodes[i + 1].status === 'refuted') {
+        regressionsDetected++;
+      }
+    }
+
+    return {
+      totalEvents,
+      assumptionVeracityRate,
+      regressionsDetected,
+      frequentFiles,
+      activeIntent: this.state.intent || null
+    };
+  }
+
   reset() {
     this.state.nodes = [];
     this.state.edges = [];
     this.state.timeline = [];
     this.state.assumptions = [];
     this.state.filesTracked = {};
+    this.state.intent = null;
+    this.state.observabilityLedger = [];
     this.state.metrics.actionStepsTotal = 0;
     this.bootstrapInitialState();
     this.saveState();

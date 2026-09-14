@@ -63,6 +63,32 @@ class CognitiveDriftDetector {
       recommendations.push(`Run automated verification for: "${highRiskUnverified[0].premise}"`);
     }
 
+    // 5. Action Thrashing: Consecutive Interventions Without New Observation
+    const recentNodes = state.nodes.slice(-8);
+    let consecutiveInterventions = 0;
+    for (let i = recentNodes.length - 1; i >= 0; i--) {
+      if (recentNodes[i].type === 'intervention') {
+        consecutiveInterventions++;
+      } else if (recentNodes[i].type === 'observation') {
+        break;
+      }
+    }
+
+    let circuitBreaker = false;
+    let mandatoryDirective = null;
+
+    if (consecutiveInterventions >= 3) {
+      circuitBreaker = true;
+      mandatoryDirective = 'MANDATORY DIRECTIVE: STOP EDITING. Consecutive code edits without empirical reality proof.';
+      anomalies.push({
+        type: 'INTERVENTION_THRASHING',
+        severity: 'CRITICAL',
+        title: 'Action Thrashing Circuit-Breaker Triggered',
+        description: `The agent performed ${consecutiveInterventions} consecutive code interventions without recording an empirical observation or test outcome.`
+      });
+      recommendations.unshift('STOP EDITING immediately. Run reality probe, inspect git diff, or run unit tests before any further changes.');
+    }
+
     const driftIndex = Math.min(100, anomalies.reduce((acc, curr) => {
       if (curr.severity === 'CRITICAL') return acc + 35;
       if (curr.severity === 'HIGH') return acc + 20;
@@ -73,6 +99,9 @@ class CognitiveDriftDetector {
       timestamp: new Date().toISOString(),
       driftIndex,
       driftStatus: driftIndex > 60 ? 'HIGH_RISK_SPIRAL' : (driftIndex > 25 ? 'MODERATE_DRIFT' : 'NOMINAL_COHERENCE'),
+      circuitBreaker,
+      mandatoryDirective,
+      consecutiveInterventions,
       anomalies,
       recommendations: Array.from(new Set(recommendations))
     };

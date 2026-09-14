@@ -76,6 +76,49 @@ class BlastRadiusAnalyzer {
     return Array.from(exportsList);
   }
 
+  detectDynamicCaveats(filePath) {
+    if (!fs.existsSync(filePath)) return [];
+    const content = fs.readFileSync(filePath, 'utf8');
+    const caveats = [];
+
+    if (/import\s*\(/g.test(content)) {
+      caveats.push({
+        type: 'DYNAMIC_IMPORT',
+        message: 'Dynamic import() detected. Runtime-resolved dependencies may not be fully mapped statically.'
+      });
+    }
+
+    if (/require\s*\(\s*[^'"\s\)]+\s*\)/g.test(content)) {
+      caveats.push({
+        type: 'DYNAMIC_REQUIRE',
+        message: 'Dynamic require(variable) expression detected. Target cannot be resolved statically.'
+      });
+    }
+
+    if (/\b(?:emit|dispatchEvent|trigger)\s*\(/g.test(content)) {
+      caveats.push({
+        type: 'EVENT_DISPATCH',
+        message: 'Event emission patterns detected. Subscribers in decoupled modules may be indirectly impacted.'
+      });
+    }
+
+    if (/\b(?:eval|Function)\s*\(/g.test(content)) {
+      caveats.push({
+        type: 'EVAL_EXECUTION',
+        message: 'Dynamic code execution (eval / Function) detected.'
+      });
+    }
+
+    if (/\[\s*[a-zA-Z0-9_$]+\s*\]\s*\(/g.test(content)) {
+      caveats.push({
+        type: 'DYNAMIC_DISPATCH',
+        message: 'Dynamic method invocation obj[key]() detected.'
+      });
+    }
+
+    return caveats;
+  }
+
   analyze(targetFile, targetSymbol = null) {
     const absTarget = path.resolve(this.workspaceDir, targetFile);
     const relTarget = path.relative(this.workspaceDir, absTarget).split(path.sep).join('/');
@@ -86,6 +129,8 @@ class BlastRadiusAnalyzer {
     const indirectConsumers = [];
     const testSuites = [];
     const targetExports = this.extractExports(absTarget);
+    const targetCaveats = this.detectDynamicCaveats(absTarget);
+    const globalCaveats = [...targetCaveats];
 
     for (const file of allFiles) {
       if (path.resolve(file) === absTarget) continue;
@@ -132,6 +177,12 @@ class BlastRadiusAnalyzer {
     else if (riskScore > 40) riskLevel = 'HIGH';
     else if (riskScore > 20) riskLevel = 'MEDIUM';
 
+    // Static confidence rating
+    let confidenceScore = 95;
+    if (globalCaveats.length > 0) {
+      confidenceScore = Math.max(50, 95 - globalCaveats.length * 15);
+    }
+
     return {
       target: {
         file: relTarget,
@@ -142,10 +193,12 @@ class BlastRadiusAnalyzer {
       metrics: {
         riskScore,
         riskLevel,
+        confidenceScore,
         directConsumersCount: directConsumers.length,
         testSuitesCount: testSuites.length,
         totalWorkspaceFilesScanned: allFiles.length
       },
+      caveats: globalCaveats,
       directConsumers,
       testSuites,
       recommendedVerificationCommands: [

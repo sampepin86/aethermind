@@ -5,13 +5,13 @@
 **Autonomous Agent Epistemic Flight Recorder & Dynamic Reality Engine**  
 *The cognitive co-processor that keeps AI coding agents grounded, regression-free, and accountable.*
 
-[![Version](https://img.shields.io/badge/version-1.0.0-cyan.svg?style=flat-square)](https://github.com/sampepin86/aethermind)
+[![Version](https://img.shields.io/badge/version-2.0.0-cyan.svg?style=flat-square)](https://github.com/sampepin86/aethermind)
 [![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg?style=flat-square)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-emerald.svg?style=flat-square)](https://nodejs.org)
-[![Tests](https://img.shields.io/badge/tests-18%2F18%20passing-10b981.svg?style=flat-square)](tests/e2e-test.js)
-[![Zero Dependencies](https://img.shields.io/badge/architecture-lightweight%20pure--JS-blue.svg?style=flat-square)](package.json)
+[![Tests](https://img.shields.io/badge/tests-31%2F31%20passing-10b981.svg?style=flat-square)](tests/e2e-test.js)
+[![MCP Compatible](https://img.shields.io/badge/MCP-stdio%20JSON--RPC-blue.svg?style=flat-square)](src/mcp/server.js)
 
-[**Features**](#-why-aethermind) • [**Quick Start**](#-quick-start) • [**CLI Reference**](#-cli-reference) • [**Web Dashboard**](#-the-graphical-gui) • [**API Docs**](#-rest--websocket-api) • [**Agent Integration**](#-ai-agent-integration)
+[**Features**](#-why-aethermind) • [**Quick Start**](#-quick-start) • [**Agent Gate**](#-agent-gate-preflight--postflight) • [**CLI Reference**](#-cli-reference) • [**Web Studio**](#-high-readability-web-studio) • [**MCP Server**](#-model-context-protocol-mcp-server)
 
 </div>
 
@@ -80,26 +80,85 @@ Open **[http://localhost:4200](http://localhost:4200)** in your browser.
 
 ---
 
-## 🖥️ The Graphical GUI
+## 🛡️ Agent Gate: Preflight & Postflight Verification
 
-The dashboard runs locally via high-speed WebSockets and HTML5 Canvas:
+AetherMind enforces a verified, deterministic agent editing workflow:
 
-### Core Visual Panes:
-1. **Interactive Neural Reasoning Graph**:
-   - Canvas-rendered DAG showing causal connections between **Hypotheses** (cyan), **Interventions** (purple), **Observations** (emerald), and **Refutations** (ruby).
-   - Animated glowing energy pulses streaming along causal edges.
-   - Panning, zoom controls, and click-to-inspect drawers with confidence sliders.
-2. **Pre-Execution Blast Radius Radar**:
-   - Concentric orbital radar scanning exports, callers, and test suites.
-   - Displays real-time risk classification (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`) and calculated impact index (`0–100%`).
-3. **Ghost Assumption Matrix**:
-   - Interactive checklist of unverified assumptions made by the agent.
-   - One-click validation triggers that execute real-time reality checks.
-4. **Cognitive Drift Gauge**:
-   - Dynamic entropy meter tracking context decay and repetitive action loops.
-   - Outputs instant remediation directives when thrashing is detected.
+```text
+USER INTENT ➔ PREFLIGHT GATE ➔ BLAST RADIUS ➔ REALITY CHECK ➔ CODE EDIT ➔ GIT DELTA ➔ TESTS ➔ POSTFLIGHT GATE ➔ COMMIT
+```
+
+### Preflight Gate (`aethermind gate pre <file>`)
+Validates target files against declared user intent scope, scans blast radius, and ensures no critical unverified assumptions remain unproven:
+```bash
+aethermind gate pre src/auth.js --scope src/auth.js
+```
+Returns: `[PASSED] ALLOWED TO PROCEED` or `[BLOCKED]` with explicit mandatory requirements.
+
+### Postflight Gate (`aethermind gate post`)
+Validates AST syntax on all touched files, verifies that coupled test suites were executed, and flags unexpected file modifications outside scope:
+```bash
+aethermind gate post --tests tests/auth.test.js
+```
+
+### Git Delta & Scope Guardian (`aethermind delta`)
+Monitors live workspace changes and alerts if unexpected files outside declared intent were modified:
+```bash
+aethermind delta
+```
 
 ---
+
+## 🖥️ High-Readability Web Studio
+
+Launch the spacious, modern developer studio:
+```bash
+aethermind ui
+```
+Open **`http://localhost:4200`** in your browser.
+
+### 6 Dedicated Full-Width Studios:
+1. **🛰️ Cockpit & Telemetry Overview**:
+   - High-contrast KPI cards (Coherence, Entropy, Active Hypotheses, Gate Status).
+   - Live cognitive flight feed & thrashing watchdog with circuit-breaker alerts.
+2. **🧠 Epistemic Reasoning Graph**:
+   - Enlarged **260×86px** cards with readable 12.5px bold titles and multi-line descriptions.
+   - Interactive search & highlight filter, zoom/pan controls, and deep-dive inspector drawer.
+3. **🛡️ Agent Gate & Scope Studio**:
+   - One-click Preflight & Postflight runners with itemized check verdicts.
+   - Side-by-side Git Delta guardian with green "Expected" and red "UNEXPECTED!" alerts.
+4. **💥 Blast Radius & Radar**:
+   - Large interactive dependency radar (360×240px).
+   - Dynamic reflection and import caveat warnings.
+   - Downstream consumers & coupled test suites list.
+5. **🔬 Reality Probes Workbench**:
+   - Interactive empirical test suite (Ports, AST Syntax, Binary PATH, Env vars, Sandboxed Shell).
+   - Direct binding of reality probe proof into the epistemic memory ledger.
+6. **📋 Flight Ledger & Debrief**:
+   - Filterable assumptions table (All / Pending / Verified / High-Risk).
+   - Chronological action timeline and one-click markdown session export.
+
+---
+
+## 🔌 Model Context Protocol (MCP) Server
+
+AetherMind natively supports the **Model Context Protocol (MCP)** over `stdio` JSON-RPC:
+```bash
+npm run mcp
+# or
+node bin/aethermind-mcp.js
+```
+
+### Supported MCP Tools:
+- `aethermind_status`: Get epistemic state & coherence index.
+- `aethermind_intent`: Declare user request prompt and allowed file scope.
+- `aethermind_preflight`: Pre-edit gate check (validates scope, blast, assumptions).
+- `aethermind_postflight`: Post-edit verification (syntax, coupled tests, diff integrity).
+- `aethermind_blast`: Analyze downstream callers, tests, and dynamic caveats.
+- `aethermind_probe`: Run safe reality check and bind factual proof.
+- `aethermind_record`: Log hypothesis, intervention, or observation node.
+- `aethermind_git_delta`: Inspect working tree modifications vs scope.
+- `aethermind_audit`: Detect cognitive drift and action thrashing loops.
 
 ## ⚡ CLI Reference
 

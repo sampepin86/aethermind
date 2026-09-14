@@ -17,12 +17,17 @@ class EpistemicNeuralGraph {
     this.dragStartX = 0;
     this.dragStartY = 0;
 
-    this.nodeWidth = 170;
-    this.nodeHeight = 52;
+    this.nodeWidth = 260;
+    this.nodeHeight = 86;
+    this.searchQuery = '';
 
     this.initEvents();
     this.resize();
     this.animate();
+  }
+
+  setSearchQuery(q) {
+    this.searchQuery = (q || '').trim().toLowerCase();
   }
 
   resize() {
@@ -40,7 +45,7 @@ class EpistemicNeuralGraph {
 
   recenter() {
     this.offsetX = this.width / 2;
-    this.offsetY = 80;
+    this.offsetY = 90;
     this.scale = 1;
   }
 
@@ -132,13 +137,13 @@ class EpistemicNeuralGraph {
       const existing = existingMap.get(n.id);
 
       let x = existing ? existing.x : 0;
-      let y = existing ? existing.y : depth * 130;
+      let y = existing ? existing.y : depth * 160;
 
       if (!existing) {
         const siblings = nodesData.filter(item => getDepth(item.id) === depth);
         const sibIndex = siblings.findIndex(s => s.id === n.id);
         const totalSib = siblings.length;
-        const spacing = 210;
+        const spacing = 300;
         x = (sibIndex - (totalSib - 1) / 2) * spacing;
       }
 
@@ -188,106 +193,142 @@ class EpistemicNeuralGraph {
       const midY = (startY + endY) / 2;
       ctx.bezierCurveTo(src.x, midY, tgt.x, midY, tgt.x, endY);
 
-      ctx.strokeStyle = edge.relationship === 'supports' ? 'rgba(16, 185, 129, 0.45)' : 'rgba(255, 255, 255, 0.15)';
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = edge.relationship === 'supports' ? 'rgba(16, 185, 129, 0.6)' : 'rgba(255, 255, 255, 0.22)';
+      ctx.lineWidth = 1.8;
       ctx.stroke();
 
       // Clean arrow tip at target
       ctx.beginPath();
       ctx.moveTo(tgt.x, endY);
-      ctx.lineTo(tgt.x - 4, endY - 6);
-      ctx.lineTo(tgt.x + 4, endY - 6);
+      ctx.lineTo(tgt.x - 5, endY - 7);
+      ctx.lineTo(tgt.x + 5, endY - 7);
       ctx.fillStyle = ctx.strokeStyle;
       ctx.fill();
 
       ctx.restore();
     });
 
-    // Draw Nodes (Crisp Linear/React-Flow card style)
+    // Draw Nodes (Crisp Linear/React-Flow card style with high readability)
     const hw = this.nodeWidth / 2;
     const hh = this.nodeHeight / 2;
 
     this.nodes.forEach(node => {
       const isSelected = node.id === this.selectedNodeId;
       const isHovered = node.id === this.hoveredNodeId;
+      const matchesSearch = this.searchQuery
+        ? (node.title + ' ' + (node.details || '')).toLowerCase().includes(this.searchQuery)
+        : true;
 
       ctx.save();
+
+      if (!matchesSearch && this.searchQuery) {
+        ctx.globalAlpha = 0.35;
+      }
 
       // Card boundary
       const x = node.x - hw;
       const y = node.y - hh;
-      const r = 6;
+      const r = 8;
 
       // Card Background
       ctx.beginPath();
       this.roundRect(ctx, x, y, this.nodeWidth, this.nodeHeight, r);
-      ctx.fillStyle = isSelected ? '#1c202d' : (isHovered ? '#191c26' : '#13151d');
+      ctx.fillStyle = isSelected ? '#222838' : (isHovered ? '#1c2232' : '#141824');
       ctx.fill();
 
       // Card Border
-      let borderColor = 'rgba(255, 255, 255, 0.1)';
+      let borderColor = 'rgba(255, 255, 255, 0.14)';
       if (isSelected) borderColor = '#3b82f6';
-      else if (node.status === 'refuted') borderColor = 'rgba(244, 63, 94, 0.5)';
-      else if (node.type === 'intervention') borderColor = 'rgba(99, 102, 241, 0.4)';
-      else if (node.type === 'observation') borderColor = 'rgba(16, 185, 129, 0.4)';
+      else if (matchesSearch && this.searchQuery) borderColor = '#f59e0b';
+      else if (node.status === 'refuted') borderColor = 'rgba(244, 63, 94, 0.65)';
+      else if (node.type === 'intervention') borderColor = 'rgba(139, 92, 246, 0.55)';
+      else if (node.type === 'observation') borderColor = 'rgba(16, 185, 129, 0.55)';
 
-      ctx.lineWidth = isSelected ? 2 : 1;
+      ctx.lineWidth = isSelected || (matchesSearch && this.searchQuery) ? 2.5 : 1.2;
       ctx.strokeStyle = borderColor;
       ctx.stroke();
 
       // Top Header: Type Pill + Confidence
-      ctx.font = '600 8px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.font = '600 10px -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
 
-      let pillBg = 'rgba(59, 130, 246, 0.15)';
-      let pillFg = '#3b82f6';
+      let pillBg = 'rgba(59, 130, 246, 0.2)';
+      let pillFg = '#60a5fa';
       let typeLabel = 'HYPOTHESIS';
 
       if (node.status === 'refuted') {
-        pillBg = 'rgba(244, 63, 94, 0.15)';
-        pillFg = '#f43f5e';
+        pillBg = 'rgba(244, 63, 94, 0.2)';
+        pillFg = '#fb7185';
         typeLabel = 'REFUTED';
       } else if (node.type === 'intervention') {
-        pillBg = 'rgba(99, 102, 241, 0.15)';
-        pillFg = '#818cf8';
+        pillBg = 'rgba(139, 92, 246, 0.2)';
+        pillFg = '#a78bfa';
         typeLabel = 'INTERVENTION';
       } else if (node.type === 'observation') {
-        pillBg = 'rgba(16, 185, 129, 0.15)';
+        pillBg = 'rgba(16, 185, 129, 0.2)';
         pillFg = '#34d399';
         typeLabel = 'OBSERVATION';
       }
 
       // Draw Type Pill
-      const pillW = ctx.measureText(typeLabel).width + 8;
+      const pillW = ctx.measureText(typeLabel).width + 12;
       ctx.beginPath();
-      this.roundRect(ctx, x + 8, y + 8, pillW, 14, 3);
+      this.roundRect(ctx, x + 12, y + 10, pillW, 18, 4);
       ctx.fillStyle = pillBg;
       ctx.fill();
       ctx.fillStyle = pillFg;
-      ctx.fillText(typeLabel, x + 12, y + 15);
+      ctx.fillText(typeLabel, x + 18, y + 19);
 
       // Confidence badge on the right
       if (node.confidence) {
-        ctx.font = '500 8.5px "JetBrains Mono", monospace';
-        ctx.fillStyle = '#64748b';
+        ctx.font = '600 11px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#cbd5e1';
         ctx.textAlign = 'right';
-        ctx.fillText(`${Math.round(node.confidence * 100)}%`, x + this.nodeWidth - 10, y + 15);
+        ctx.fillText(`${Math.round(node.confidence * 100)}% conf`, x + this.nodeWidth - 12, y + 19);
       }
 
-      // Title text (Truncated cleanly)
-      ctx.font = '500 10.5px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillStyle = isSelected ? '#ffffff' : '#cbd5e1';
+      // Title text (Large 12.5px Bold, with 2-line wrap if needed)
+      ctx.font = '600 12.5px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillStyle = isSelected ? '#ffffff' : '#f1f5f9';
       ctx.textAlign = 'left';
 
-      let title = node.title || 'Untitled Node';
-      if (ctx.measureText(title).width > this.nodeWidth - 20) {
-        while (title.length > 3 && ctx.measureText(title + '...').width > this.nodeWidth - 20) {
-          title = title.slice(0, -1);
+      const maxTitleW = this.nodeWidth - 24;
+      let line1 = node.title || 'Untitled Node';
+      let line2 = '';
+
+      if (ctx.measureText(line1).width > maxTitleW) {
+        const words = line1.split(' ');
+        line1 = '';
+        let wIdx = 0;
+        while (wIdx < words.length && ctx.measureText(line1 + words[wIdx] + ' ').width < maxTitleW) {
+          line1 += words[wIdx] + ' ';
+          wIdx++;
         }
-        title += '...';
+        line2 = words.slice(wIdx).join(' ');
+        if (ctx.measureText(line2).width > maxTitleW) {
+          while (line2.length > 3 && ctx.measureText(line2 + '...').width > maxTitleW) {
+            line2 = line2.slice(0, -1);
+          }
+          line2 += '...';
+        }
       }
-      ctx.fillText(title, x + 10, y + 36);
+
+      ctx.fillText(line1.trim(), x + 12, y + 46);
+      if (line2) {
+        ctx.fillText(line2.trim(), x + 12, y + 64);
+      } else if (node.details) {
+        ctx.font = '400 11px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.fillStyle = '#94a3b8';
+        let detailSnippet = node.details;
+        if (ctx.measureText(detailSnippet).width > maxTitleW) {
+          while (detailSnippet.length > 3 && ctx.measureText(detailSnippet + '...').width > maxTitleW) {
+            detailSnippet = detailSnippet.slice(0, -1);
+          }
+          detailSnippet += '...';
+        }
+        ctx.fillText(detailSnippet, x + 12, y + 65);
+      }
 
       ctx.restore();
     });
