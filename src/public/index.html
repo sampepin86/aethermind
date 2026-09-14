@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AetherMind | Autonomous Agent Epistemic Flight Recorder & Dynamic Reality Engine</title>
+  <meta name="description" content="AetherMind is an epistemic telemetry flight recorder, cognitive drift detector, and pre-execution blast radius engine for autonomous AI coding agents.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="dark-theme">
+  <!-- Top Global Navbar -->
+  <header class="app-header" id="main-header">
+    <div class="header-left">
+      <div class="brand-container">
+        <div class="brand-icon-pulse">
+          <div class="pulse-ring"></div>
+          <svg class="brand-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1 class="brand-title">AETHERMIND</h1>
+          <span class="brand-subtitle">Autonomous Epistemic Flight Recorder</span>
+        </div>
+      </div>
+      <div class="session-badge" id="session-badge-container">
+        <span class="pulse-dot"></span>
+        <span id="session-status-text">COGNITIVE RADAR ACTIVE</span>
+      </div>
+    </div>
+
+    <!-- Quick Stats Telemetry Bar -->
+    <div class="telemetry-pills">
+      <div class="telemetry-pill" id="pill-coherence">
+        <span class="pill-label">Coherence</span>
+        <span class="pill-val val-cyan" id="stat-coherence">94%</span>
+      </div>
+      <div class="telemetry-pill" id="pill-entropy">
+        <span class="pill-label">Entropy</span>
+        <span class="pill-val val-emerald" id="stat-entropy">12%</span>
+      </div>
+      <div class="telemetry-pill" id="pill-hypotheses">
+        <span class="pill-label">Hypotheses</span>
+        <span class="pill-val val-purple" id="stat-hypotheses">1 Active</span>
+      </div>
+      <div class="telemetry-pill" id="pill-steps">
+        <span class="pill-label">Flight Steps</span>
+        <span class="pill-val val-amber" id="stat-steps">#0</span>
+      </div>
+    </div>
+
+    <!-- Action Toolbar -->
+    <div class="header-actions">
+      <button class="btn btn-outline" id="btn-load-demo" title="Load sample agent debugging trajectory">
+        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+        <span>Simulate Flight</span>
+      </button>
+      <button class="btn btn-primary" id="btn-new-hypothesis">
+        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        <span>+ Hypothesis</span>
+      </button>
+      <button class="btn btn-secondary" id="btn-new-assumption">
+        <span>+ Assumption</span>
+      </button>
+      <button class="btn btn-icon" id="btn-refresh-state" title="Sync State">
+        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+      </button>
+      <button class="btn btn-icon btn-danger-ghost" id="btn-reset-state" title="Reset Session Telemetry">
+        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Multi-Tier Grid Container -->
+  <main class="dashboard-grid">
+    <!-- Left Column: Flight Log & Assumptions Reality Checklist -->
+    <aside class="panel left-panel" id="left-sidebar">
+      <div class="panel-tabs">
+        <button class="tab-btn active" id="tab-btn-timeline" data-tab="timeline">Flight Timeline</button>
+        <button class="tab-btn" id="tab-btn-assumptions" data-tab="assumptions">
+          Assumptions <span class="tab-badge" id="badge-unverified-count">0</span>
+        </button>
+        <button class="tab-btn" id="tab-btn-reality" data-tab="reality">Probes</button>
+      </div>
+
+      <!-- Tab 1: Flight Timeline -->
+      <div class="tab-content active" id="tab-pane-timeline">
+        <div class="panel-section-header">
+          <h2>Epistemic Action Sequence</h2>
+          <span class="counter-tag" id="timeline-step-count">0 events</span>
+        </div>
+        <div class="timeline-container" id="timeline-feed">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <!-- Tab 2: Ghost Assumptions Reality Check -->
+      <div class="tab-content" id="tab-pane-assumptions">
+        <div class="panel-section-header">
+          <h2>Ghost Assumption Radar</h2>
+          <button class="btn-micro" id="btn-quick-add-asm">+ Add</button>
+        </div>
+        <p class="section-hint">Unverified premises AI agents habitualize without empirical verification.</p>
+        <div class="assumptions-list" id="assumptions-feed">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <!-- Tab 3: Reality Probe Matrix -->
+      <div class="tab-content" id="tab-pane-reality">
+        <div class="panel-section-header">
+          <h2>Empirical Reality Probes</h2>
+          <button class="btn-micro" id="btn-run-all-probes">Run All</button>
+        </div>
+        <div class="probe-controls">
+          <div class="probe-card" id="probe-port-card">
+            <div class="probe-header">
+              <span class="probe-title">Port Availability Probe</span>
+              <span class="probe-badge" id="badge-probe-port">Ready</span>
+            </div>
+            <div class="probe-input-row">
+              <input type="number" id="input-probe-port" value="4200" placeholder="Port #">
+              <button class="btn-sm" id="btn-exec-port-probe">Check Port</button>
+            </div>
+          </div>
+
+          <div class="probe-card" id="probe-syntax-card">
+            <div class="probe-header">
+              <span class="probe-title">Code Syntax Integrity</span>
+              <span class="probe-badge" id="badge-probe-syntax">Ready</span>
+            </div>
+            <div class="probe-input-row">
+              <input type="text" id="input-probe-syntax" value="sample-workspace/auth.js" placeholder="File path">
+              <button class="btn-sm" id="btn-exec-syntax-probe">Verify AST</button>
+            </div>
+          </div>
+
+          <div class="probe-card" id="probe-env-card">
+            <div class="probe-header">
+              <span class="probe-title">Environment Variable Probe</span>
+              <span class="probe-badge" id="badge-probe-env">Ready</span>
+            </div>
+            <div class="probe-input-row">
+              <input type="text" id="input-probe-env" value="PATH" placeholder="Env Var Name">
+              <button class="btn-sm" id="btn-exec-env-probe">Inspect</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Center Stage: The Epistemic Neural Graph -->
+    <section class="panel center-stage" id="center-neural-stage">
+      <div class="stage-header">
+        <div class="stage-title-group">
+          <h2>Epistemic Reasoning Graph</h2>
+          <div class="graph-legend">
+            <span class="legend-item"><span class="dot dot-cyan"></span>Hypothesis</span>
+            <span class="legend-item"><span class="dot dot-purple"></span>Intervention</span>
+            <span class="legend-item"><span class="dot dot-emerald"></span>Observation</span>
+            <span class="legend-item"><span class="dot dot-ruby"></span>Refuted</span>
+          </div>
+        </div>
+        <div class="stage-controls">
+          <button class="btn-icon-glass" id="btn-zoom-in" title="Zoom In">+</button>
+          <button class="btn-icon-glass" id="btn-zoom-out" title="Zoom Out">−</button>
+          <button class="btn-icon-glass" id="btn-recenter-graph" title="Recenter View">⊙</button>
+        </div>
+      </div>
+
+      <!-- Interactive Canvas Container -->
+      <div class="canvas-viewport" id="canvas-container">
+        <canvas id="neural-canvas"></canvas>
+        <div class="empty-graph-state" id="graph-empty-state" style="display: none;">
+          <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" fill="none" stroke-width="1.5"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
+          <p>No epistemic nodes initialized yet.</p>
+          <button class="btn btn-sm btn-primary" id="btn-empty-load-demo">Load Demo Trajectory</button>
+        </div>
+      </div>
+
+      <!-- Interactive Node Inspector Drawer (Slide-out) -->
+      <div class="node-inspector-drawer" id="node-inspector">
+        <div class="drawer-header">
+          <span class="node-type-pill" id="inspector-node-type">HYPOTHESIS</span>
+          <button class="btn-close" id="btn-close-inspector">&times;</button>
+        </div>
+        <div class="drawer-body">
+          <h3 class="inspector-title" id="inspector-title">Database Connection Pool Exhaustion</h3>
+          <div class="inspector-meta-row">
+            <span class="meta-label">Status:</span>
+            <select id="inspector-status-select" class="custom-select">
+              <option value="active">Active (Investigating)</option>
+              <option value="confirmed">Confirmed (Verified)</option>
+              <option value="refuted">Refuted (Falsified)</option>
+              <option value="stale">Stale (Deprecated)</option>
+            </select>
+          </div>
+          <div class="inspector-meta-row">
+            <span class="meta-label">Confidence:</span>
+            <div class="confidence-slider-group">
+              <input type="range" id="inspector-confidence" min="0" max="100" value="85">
+              <span id="inspector-confidence-val">85%</span>
+            </div>
+          </div>
+          <div class="inspector-section">
+            <h4>Details & Causal Rationale</h4>
+            <div class="inspector-details-box" id="inspector-details">No details provided.</div>
+          </div>
+          <div class="inspector-actions">
+            <button class="btn btn-sm btn-outline" id="btn-branch-hypothesis">+ Branch Hypothesis</button>
+            <button class="btn btn-sm btn-primary" id="btn-save-node-changes">Save Status</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Column: Blast Radius Orbital Radar & Cognitive Drift Radar -->
+    <aside class="panel right-panel" id="right-sidebar">
+      <!-- Section 1: Blast Radius Analyzer -->
+      <div class="blast-card">
+        <div class="panel-section-header">
+          <h2>Pre-Execution Blast Radius</h2>
+          <span class="risk-badge badge-medium" id="blast-risk-badge">MEDIUM RISK</span>
+        </div>
+        <div class="blast-input-row">
+          <input type="text" id="input-blast-target" value="sample-workspace/auth.js" placeholder="Target file...">
+          <button class="btn btn-sm btn-primary" id="btn-run-blast">Scan</button>
+        </div>
+        
+        <!-- Blast Radius Visual Radar Canvas -->
+        <div class="blast-radar-container">
+          <canvas id="blast-radar-canvas" width="280" height="200"></canvas>
+        </div>
+
+        <div class="blast-metrics-grid">
+          <div class="b-metric">
+            <span class="bm-val" id="bm-direct-callers">1</span>
+            <span class="bm-lbl">Direct Callers</span>
+          </div>
+          <div class="b-metric">
+            <span class="bm-val" id="bm-test-suites">1</span>
+            <span class="bm-lbl">Test Suites</span>
+          </div>
+          <div class="b-metric">
+            <span class="bm-val" id="bm-risk-score">36%</span>
+            <span class="bm-lbl">Impact Score</span>
+          </div>
+        </div>
+
+        <!-- Affected Files Tree -->
+        <div class="affected-files-box">
+          <h4>Impacted Downstream Files:</h4>
+          <ul class="affected-list" id="affected-files-list">
+            <li><span class="file-icon">📄</span> sample-workspace/server.js <span class="badge-mini">Direct Import</span></li>
+            <li><span class="file-icon">🧪</span> sample-workspace/auth.test.js <span class="badge-mini badge-green">Test</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Section 2: Cognitive Drift & Loop Safeguard -->
+      <div class="drift-card">
+        <div class="panel-section-header">
+          <h2>Cognitive Drift Guard</h2>
+          <span class="drift-badge" id="drift-status-badge">NOMINAL</span>
+        </div>
+        <div class="drift-gauge-wrapper">
+          <div class="drift-gauge-track">
+            <div class="drift-gauge-fill" id="drift-gauge-fill" style="width: 15%;"></div>
+          </div>
+          <span class="drift-gauge-label" id="drift-gauge-text">15 / 100 Drift Index</span>
+        </div>
+        <div class="anomalies-container" id="anomalies-container">
+          <div class="anomaly-item nominal">
+            <span class="anomaly-icon">✔</span>
+            <div class="anomaly-body">
+              <span class="anomaly-title">Agent Epistemic Lineage Stable</span>
+              <p>No circular action thrashing or context staleness detected.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Modal: Create New Hypothesis / Node -->
+  <div class="modal-backdrop" id="modal-new-node" style="display: none;">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="modal-node-title">Record Epistemic Step</h3>
+        <button class="btn-close" id="btn-close-node-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="form-node-type">Step Type</label>
+          <select id="form-node-type" class="custom-select">
+            <option value="hypothesis">Hypothesis (Premise to investigate)</option>
+            <option value="intervention">Intervention (Action / Code modification)</option>
+            <option value="observation">Observation (Test result / Output / Fact)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="form-node-title-input">Title / Summary</label>
+          <input type="text" id="form-node-title-input" placeholder="e.g. Memory leak in token cache handler">
+        </div>
+        <div class="form-group">
+          <label for="form-node-details">Rationale & Evidence</label>
+          <textarea id="form-node-details" rows="3" placeholder="Explain the causal premise, expected vs actual behavior, or logs..."></textarea>
+        </div>
+        <div class="form-group">
+          <label for="form-node-parent">Parent Node Link</label>
+          <select id="form-node-parent" class="custom-select">
+            <option value="">None (Root Node)</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" id="btn-cancel-node-modal">Cancel</button>
+        <button class="btn btn-primary" id="btn-submit-new-node">Record into Ledger</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Create New Assumption -->
+  <div class="modal-backdrop" id="modal-new-assumption" style="display: none;">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>Declare Ghost Assumption</h3>
+        <button class="btn-close" id="btn-close-asm-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="form-asm-premise">Premise to Verify</label>
+          <input type="text" id="form-asm-premise" placeholder="e.g. Redis is accessible on port 6379">
+        </div>
+        <div class="form-group">
+          <label for="form-asm-category">Category</label>
+          <select id="form-asm-category" class="custom-select">
+            <option value="environment">Environment / Port / Process</option>
+            <option value="dependency">Library / Runtime / Version</option>
+            <option value="logic">Code Logic / Assumption</option>
+            <option value="data">Data State / DB Schema</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="form-asm-risk">Risk Level if False</label>
+          <select id="form-asm-risk" class="custom-select">
+            <option value="MEDIUM">MEDIUM Risk</option>
+            <option value="HIGH">HIGH Risk</option>
+            <option value="CRITICAL">CRITICAL Risk (Catastrophic fail)</option>
+            <option value="LOW">LOW Risk</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" id="btn-cancel-asm-modal">Cancel</button>
+        <button class="btn btn-primary" id="btn-submit-new-asm">Register Assumption</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="components/neural-graph.js"></script>
+  <script src="components/blast-radar.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

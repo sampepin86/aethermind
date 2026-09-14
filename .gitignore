@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Local telemetry state & flight recorder stores
+.aethermind/
+*.log
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE & editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+real-case-debrief.md
+real-case/journal.log

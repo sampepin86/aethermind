@@ -1,0 +1,30 @@
+{
+  "name": "aethermind",
+  "version": "1.0.0",
+  "description": "Autonomous Agent Epistemic Flight Recorder & Dynamic Reality Engine",
+  "main": "src/server/app.js",
+  "bin": {
+    "aethermind": "./bin/aethermind.js"
+  },
+  "scripts": {
+    "test": "node tests/e2e-test.js",
+    "start": "node bin/aethermind.js ui",
+    "demo": "node bin/aethermind.js demo",
+    "status": "node bin/aethermind.js status",
+    "audit": "node bin/aethermind.js audit"
+  },
+  "keywords": [
+    "ai-agent",
+    "epistemic-graph",
+    "telemetry",
+    "flight-recorder",
+    "blast-radius",
+    "drift-detection"
+  ],
+  "author": "Autonomous Agent Lab",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.2",
+    "ws": "^8.18.0"
+  }
+}

@@ -1,0 +1,300 @@
+#!/usr/bin/env node
+
+const path = require('path');
+const fs = require('fs');
+const createAppServer = require('../src/server/app');
+const BlastRadiusAnalyzer = require('../src/core/blast-radius');
+const RealityProbeMatrix = require('../src/core/reality-probe');
+const CognitiveDriftDetector = require('../src/core/drift-detector');
+const EpistemicStateEngine = require('../src/core/state-engine');
+const { loadDemoSimulation } = require('../src/server/routes');
+
+// ANSI Color Helpers
+const c = {
+  reset: '\x1b[0m',
+  bright: '\x1b[1m',
+  dim: '\x1b[2m',
+  cyan: '\x1b[36m',
+  magenta: '\x1b[35m',
+  yellow: '\x1b[33m',
+  green: '\x1b[32m',
+  red: '\x1b[31m',
+  blue: '\x1b[34m',
+  gray: '\x1b[90m'
+};
+
+function banner() {
+  console.log(`
+${c.cyan}${c.bright}  ⚡  A E T H E R M I N D  ⚡${c.reset}
+${c.gray}  Autonomous Agent Epistemic Flight Recorder & Dynamic Reality Engine${c.reset}
+${c.gray}  ──────────────────────────────────────────────────────────────────${c.reset}`);
+}
+
+// Extract flags
+const rawArgs = process.argv.slice(2);
+let workspaceDir = process.cwd();
+const dirIdx = rawArgs.findIndex(a => a === '--dir' || a === '-d');
+if (dirIdx !== -1 && rawArgs[dirIdx + 1]) {
+  workspaceDir = path.resolve(rawArgs[dirIdx + 1]);
+}
+
+// Filter out --dir and --port flags for positional command parsing
+const args = [];
+for (let i = 0; i < rawArgs.length; i++) {
+  if (rawArgs[i] === '--dir' || rawArgs[i] === '-d' || rawArgs[i] === '--port') {
+    i++; // skip flag value
+    continue;
+  }
+  args.push(rawArgs[i]);
+}
+
+const command = args[0] || 'status';
+
+async function main() {
+  switch (command) {
+    case 'clean':
+    case 'reset': {
+      banner();
+      const engine = new EpistemicStateEngine(workspaceDir);
+      engine.reset();
+      console.log(`\n  ${c.green}✔ Telemetry session cleaned and reset for:${c.reset} ${c.bright}${c.cyan}${workspaceDir}${c.reset}\n`);
+      break;
+    }
+
+    case 'ui':
+    case 'serve': {
+      banner();
+      let port = 4200;
+      const portIdx = rawArgs.indexOf('--port');
+      if (portIdx !== -1 && rawArgs[portIdx + 1]) {
+        port = parseInt(rawArgs[portIdx + 1], 10);
+      }
+      console.log(`  ${c.gray}Target Project:${c.reset} ${c.bright}${c.cyan}${workspaceDir}${c.reset}`);
+      const { server } = createAppServer(workspaceDir, port);
+      server.listen(port, () => {
+        console.log(`\n  ${c.green}✔ Dashboard running locally at:${c.reset} ${c.bright}${c.cyan}http://localhost:${port}${c.reset}`);
+        console.log(`  ${c.gray}• Epistemic state store:${c.reset} ${path.join(workspaceDir, '.aethermind/telemetry.json')}`);
+        console.log(`  ${c.gray}• Press Ctrl+C to terminate the dashboard server.${c.reset}\n`);
+      });
+      break;
+    }
+
+    case 'blast': {
+      banner();
+      const targetFile = args[1];
+      const targetSymbol = args[2] || null;
+
+      if (!targetFile) {
+        console.log(`\n  ${c.red}Error:${c.reset} Please specify a target file to analyze.`);
+        console.log(`  Usage: ${c.yellow}aethermind blast <file-path> [symbol-name]${c.reset}\n`);
+        process.exit(1);
+      }
+
+      console.log(`\n  ${c.bright}Scanning Blast Radius for:${c.reset} ${c.cyan}${targetFile}${c.reset}${targetSymbol ? ` (symbol: ${c.yellow}${targetSymbol}${c.reset})` : ''}`);
+      const analyzer = new BlastRadiusAnalyzer(workspaceDir);
+      const result = analyzer.analyze(targetFile, targetSymbol);
+
+      const riskColor = result.metrics.riskLevel === 'CRITICAL' ? c.red : (result.metrics.riskLevel === 'HIGH' ? c.yellow : c.green);
+      console.log(`  ${c.gray}──────────────────────────────────────────────────────────────────${c.reset}`);
+      console.log(`  Risk Score:   ${riskColor}${result.metrics.riskScore}/100 [${result.metrics.riskLevel}]${c.reset}`);
+      console.log(`  Direct Callers: ${c.bright}${result.metrics.directConsumersCount}${c.reset} files`);
+      console.log(`  Test Suites:    ${c.bright}${result.metrics.testSuitesCount}${c.reset} files`);
+      console.log(`  Files Scanned:  ${c.gray}${result.metrics.totalWorkspaceFilesScanned} workspace code files${c.reset}`);
+
+      if (result.target.detectedExports.length > 0) {
+        console.log(`\n  ${c.bright}Detected Exports:${c.reset}`);
+        result.target.detectedExports.forEach(exp => console.log(`    ${c.blue}↳ ${exp}${c.reset}`));
+      }
+
+      if (result.directConsumers.length > 0) {
+        console.log(`\n  ${c.bright}Direct Downstream Dependents:${c.reset}`);
+        result.directConsumers.forEach(cons => {
+          console.log(`    ${c.yellow}• ${cons.file}${c.reset} ${cons.symbolsFound.length > 0 ? c.gray + `[uses: ${cons.symbolsFound.join(', ')}]` + c.reset : ''}`);
+        });
+      }
+
+      if (result.testSuites.length > 0) {
+        console.log(`\n  ${c.bright}Coupled Test Suites:${c.reset}`);
+        result.testSuites.forEach(t => console.log(`    ${c.green}✔ ${t.file}${c.reset}`));
+      }
+
+      console.log(`\n  ${c.bright}Recommended Sanity Checks:${c.reset}`);
+      result.recommendedVerificationCommands.forEach(cmd => console.log(`    ${c.cyan}$ ${cmd}${c.reset}`));
+      console.log('');
+      break;
+    }
+
+    case 'record': {
+      banner();
+      const type = args[1]; // 'hypothesis' | 'intervention' | 'observation'
+      const title = args[2];
+
+      if (!type || !title) {
+        console.log(`\n  ${c.red}Error:${c.reset} Invalid arguments.`);
+        console.log(`  Usage: ${c.yellow}aethermind record <hypothesis|intervention|observation> "<title>" [--details "..."]${c.reset}\n`);
+        process.exit(1);
+      }
+
+      const engine = new EpistemicStateEngine(workspaceDir);
+      let details = '';
+      const detailsIdx = args.indexOf('--details');
+      if (detailsIdx !== -1 && args[detailsIdx + 1]) {
+        details = args[detailsIdx + 1];
+      }
+
+      const node = engine.addNode({ type, title, details });
+      console.log(`\n  ${c.green}✔ Recorded ${type.toUpperCase()}:${c.reset} ${c.bright}${node.title}${c.reset}`);
+      console.log(`  ${c.gray}Node ID: ${node.id} | Timestamp: ${node.timestamp}${c.reset}\n`);
+      break;
+    }
+
+    case 'probe': {
+      banner();
+      const checkType = args[1]; // port, syntax, command, env, health
+      const target = args[2];
+
+      if (checkType === 'port' && target) {
+        const res = await RealityProbeMatrix.checkPort(parseInt(target, 10));
+        console.log(`\n  ${res.passed ? c.green + '✔ PASSED' : c.red + '✘ BLOCKED'}: ${res.message}${c.reset}\n`);
+      } else if (checkType === 'syntax' && target) {
+        const res = RealityProbeMatrix.checkSyntax(path.resolve(workspaceDir, target));
+        console.log(`\n  ${res.passed ? c.green + '✔ PASSED' : c.red + '✘ FAILED'}: ${res.message}${c.reset}\n`);
+      } else if (checkType === 'command' && target) {
+        const res = RealityProbeMatrix.checkCommand(target);
+        console.log(`\n  ${res.passed ? c.green + '✔ PASSED' : c.red + '✘ FAILED'}: ${res.message}${c.reset}\n`);
+      } else if (checkType === 'env' && target) {
+        const res = RealityProbeMatrix.checkEnvVar(target);
+        console.log(`\n  ${res.passed ? c.green + '✔ FOUND' : c.red + '✘ MISSING'}: ${res.message}${c.reset}\n`);
+      } else {
+        console.log(`\n  ${c.bright}Running Comprehensive System Health Probe...${c.reset}`);
+        const health = await RealityProbeMatrix.runSystemHealthCheck(workspaceDir);
+        console.log(`  ${c.gray}──────────────────────────────────────────────────────────────────${c.reset}`);
+        console.log(`  Node Runtime:     ${health.node.passed ? c.green + '✔ Available' : c.red + '✘ Missing'}${c.reset} (${health.node.path || 'N/A'})`);
+        console.log(`  Python Runtime:   ${health.python.passed ? c.green + '✔ Available' : c.red + '✘ Missing'}${c.reset} (${health.python.path || 'N/A'})`);
+        console.log(`  Git Repository:   ${health.gitStatus.passed ? c.green + '✔ Inside Worktree' : c.yellow + '⚠ Not a Git Repo'}${c.reset}`);
+        console.log(`  UI Port 4200:     ${health.port4200.passed ? c.green + '✔ Port Free' : c.yellow + '⚠ Port Occupied'}${c.reset}`);
+        console.log('');
+      }
+      break;
+    }
+
+    case 'audit': {
+      banner();
+      const engine = new EpistemicStateEngine(workspaceDir);
+      const detector = new CognitiveDriftDetector(engine);
+      const report = detector.detect();
+
+      const statusColor = report.driftStatus === 'NOMINAL_COHERENCE' ? c.green : (report.driftStatus === 'MODERATE_DRIFT' ? c.yellow : c.red);
+      console.log(`\n  ${c.bright}Cognitive Drift & Reality Coherence Audit:${c.reset}`);
+      console.log(`  ${c.gray}──────────────────────────────────────────────────────────────────${c.reset}`);
+      console.log(`  Status:       ${statusColor}${c.bright}${report.driftStatus}${c.reset}`);
+      console.log(`  Drift Index:  ${statusColor}${report.driftIndex}/100${c.reset}`);
+
+      if (report.anomalies.length === 0) {
+        console.log(`\n  ${c.green}✔ No epistemic drift or repetitive loops detected.${c.reset}`);
+      } else {
+        console.log(`\n  ${c.bright}Detected Anomalies (${report.anomalies.length}):${c.reset}`);
+        report.anomalies.forEach((a, i) => {
+          const col = a.severity === 'CRITICAL' ? c.red : (a.severity === 'HIGH' ? c.yellow : c.cyan);
+          console.log(`  ${col}[${a.severity}] ${a.title}${c.reset}`);
+          console.log(`    ${c.gray}${a.description}${c.reset}`);
+        });
+      }
+
+      if (report.recommendations.length > 0) {
+        console.log(`\n  ${c.bright}Agent Directives:${c.reset}`);
+        report.recommendations.forEach(r => console.log(`    ${c.cyan}→ ${r}${c.reset}`));
+      }
+      console.log('');
+      break;
+    }
+
+    case 'export': {
+      banner();
+      const engine = new EpistemicStateEngine(workspaceDir);
+      const state = engine.getState();
+      const detector = new CognitiveDriftDetector(engine);
+      const drift = detector.detect();
+
+      const outFile = args[1] || 'debrief.md';
+      const outPath = path.resolve(workspaceDir, outFile);
+
+      let md = `# ⚡ AetherMind Epistemic Session Debrief\n\n`;
+      md += `**Session ID:** \`${state.session.id}\`  \n`;
+      md += `**Generated:** ${new Date().toISOString()}  \n`;
+      md += `**Coherence Index:** ${state.metrics.coherenceIndex}% | **Entropy:** ${state.metrics.entropyScore}/100 | **Drift Status:** \`${drift.driftStatus}\`\n\n`;
+
+      md += `## 🧠 Causal Reasoning Trajectory\n\n`;
+      state.nodes.forEach(n => {
+        const icon = n.type === 'hypothesis' ? '💡' : (n.type === 'intervention' ? '⚡' : '👁');
+        md += `### ${icon} [${n.type.toUpperCase()}] ${n.title}\n`;
+        md += `- **Status:** \`${n.status}\` | **Confidence:** ${Math.round((n.confidence || 0.8) * 100)}%\n`;
+        md += `- **Timestamp:** ${n.timestamp}\n`;
+        if (n.details) md += `- **Rationale:** ${n.details}\n`;
+        md += `\n`;
+      });
+
+      md += `## 🔍 Verified Assumptions Matrix\n\n`;
+      state.assumptions.forEach(a => {
+        md += `- [${a.verified ? 'x' : ' '}] **${a.premise}** (\`${a.riskLevel} RISK\`, category: *${a.category}*)\n`;
+        if (a.proof) md += `  - *Proof:* ${a.proof}\n`;
+      });
+      md += `\n`;
+
+      md += `## 🛡️ Cognitive Drift Directives\n\n`;
+      if (drift.recommendations.length === 0) {
+        md += `*No active epistemic drift warnings. Workspace operations nominal.*\n\n`;
+      } else {
+        drift.recommendations.forEach(r => md += `- ⚠️ ${r}\n`);
+        md += `\n`;
+      }
+
+      fs.writeFileSync(outPath, md, 'utf8');
+      console.log(`\n  ${c.green}✔ Epistemic debrief written to:${c.reset} ${c.bright}${outFile}${c.reset}\n`);
+      break;
+    }
+
+    case 'demo': {
+      banner();
+      const engine = new EpistemicStateEngine(workspaceDir);
+      loadDemoSimulation(engine);
+      console.log(`  ${c.green}✔ Synthesized multi-stage AI reasoning flight telemetry.${c.reset}`);
+      console.log(`  ${c.cyan}Launching AetherMind GUI...${c.reset}`);
+      const { server } = createAppServer(workspaceDir, 4200);
+      server.listen(4200, () => {
+        console.log(`\n  ${c.green}✔ UI launched at:${c.reset} ${c.bright}${c.cyan}http://localhost:4200${c.reset}\n`);
+      });
+      break;
+    }
+
+    case 'status':
+    default: {
+      banner();
+      const engine = new EpistemicStateEngine(workspaceDir);
+      const state = engine.getState();
+
+      console.log(`\n  ${c.bright}Cognitive State Overview:${c.reset}`);
+      console.log(`  ${c.gray}──────────────────────────────────────────────────────────────────${c.reset}`);
+      console.log(`  Entropy Score:      ${state.metrics.entropyScore < 40 ? c.green : c.yellow}${state.metrics.entropyScore}/100${c.reset}`);
+      console.log(`  Coherence Index:    ${c.cyan}${state.metrics.coherenceIndex}%${c.reset}`);
+      console.log(`  Active Hypotheses:  ${c.bright}${state.metrics.activeHypothesesCount}${c.reset}`);
+      console.log(`  Total Action Steps: ${c.bright}${state.metrics.actionStepsTotal}${c.reset}`);
+      console.log(`  Assumptions Track:  ${c.green}${state.metrics.verifiedAssumptionsCount} verified${c.reset}, ${c.yellow}${state.metrics.unverifiedAssumptionsCount} unverified${c.reset}`);
+      
+      console.log(`\n  ${c.bright}Available Commands:${c.reset}`);
+      console.log(`    ${c.cyan}aethermind ui${c.reset}                    Launch the futuristic Graphical Interface`);
+      console.log(`    ${c.cyan}aethermind blast <file> [sym]${c.reset}    Simulate blast radius of code edit`);
+      console.log(`    ${c.cyan}aethermind record <type> <title>${c.reset} Log hypothesis / observation`);
+      console.log(`    ${c.cyan}aethermind probe [check] [target]${c.reset}Run sanity check against environment`);
+      console.log(`    ${c.cyan}aethermind audit${c.reset}                 Check epistemic drift & reasoning loops`);
+      console.log(`    ${c.cyan}aethermind demo${c.reset}                  Load complete demo scenario & UI`);
+      console.log('');
+      break;
+    }
+  }
+}
+
+main().catch(err => {
+  console.error('\x1b[31mAetherMind Fatal Error:\x1b[0m', err.message);
+  process.exit(1);
+});
