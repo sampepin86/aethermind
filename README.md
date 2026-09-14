@@ -5,13 +5,13 @@
 **Autonomous Agent Epistemic Flight Recorder & Dynamic Reality Engine**  
 *The cognitive co-processor that keeps AI coding agents grounded, regression-free, and accountable.*
 
-[![Version](https://img.shields.io/badge/version-2.0.0-cyan.svg?style=flat-square)](https://github.com/sampepin86/aethermind)
+[![Version](https://img.shields.io/badge/version-2.1.0-cyan.svg?style=flat-square)](https://github.com/sampepin86/aethermind)
 [![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg?style=flat-square)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-emerald.svg?style=flat-square)](https://nodejs.org)
-[![Tests](https://img.shields.io/badge/tests-31%2F31%20passing-10b981.svg?style=flat-square)](tests/e2e-test.js)
-[![MCP Compatible](https://img.shields.io/badge/MCP-stdio%20JSON--RPC-blue.svg?style=flat-square)](src/mcp/server.js)
+[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-emerald.svg?style=flat-square)](https://nodejs.org)
+[![Tests](https://img.shields.io/badge/tests-44%2F44%20passing-10b981.svg?style=flat-square)](tests/e2e-test.js)
+[![MCP Compatible](https://img.shields.io/badge/MCP-13%20tools%20stdio-blue.svg?style=flat-square)](src/mcp/server.js)
 
-[**Features**](#-why-aethermind) • [**Quick Start**](#-quick-start) • [**Agent Gate**](#-agent-gate-preflight--postflight) • [**CLI Reference**](#-cli-reference) • [**Web Studio**](#-high-readability-web-studio) • [**MCP Server**](#-model-context-protocol-mcp-server)
+[**Features**](#-why-aethermind) • [**Quick Start**](#-quick-start) • [**4-Gate Workflow**](#-agent-gates-the-4-stage-safety-pipeline) • [**Observability**](#-observability--regression-intelligence) • [**MCP Installer**](#-multi-ide-mcp-integration) • [**CLI Reference**](#-cli-reference) • [**Web Studio**](#-high-readability-web-studio) • [**REST API**](#-rest--websocket-api)
 
 </div>
 
@@ -19,7 +19,7 @@
 
 ## 🧭 Why AetherMind?
 
-Autonomous AI coding agents (Antigravity, Claude Code, Cursor, Copilot, custom agentic loops) fail in predictable, frustrating ways during complex multi-step sessions:
+Autonomous AI coding agents (*Google Antigravity, Claude Code, Cursor, Windsurf, custom agentic loops*) often fail in predictable ways during complex sessions:
 
 ```text
 ┌─────────────────────────────┐        ┌──────────────────────────────┐
@@ -37,15 +37,20 @@ Autonomous AI coding agents (Antigravity, Claude Code, Cursor, Copilot, custom a
 │     & schemas exist)        │        │     and syntax before acting)│
 │                             │        │                              │
 │ ❌ Circular Thrashing       │        │ ✅ Cognitive Drift Guard     │
-│    (Loops in repeated edits)│        │    (Detects & breaks loops)  │
+│    (Loops in repeated edits)│        │    (Circuit-breaker stops it)│
+│                             │        │                              │
+│ ❌ Unchecked Regressions    │        │ ✅ 4-Gate Policy Pipeline    │
+│    (Changes unintended code)│        │    (Blocks out-of-scope mods)│
 └─────────────────────────────┘        └──────────────────────────────┘
 ```
 
-**AetherMind** acts as the AI's **blackbox flight recorder** and **reality engine**:
-- It maintains a **causal hypothesis graph** across dozens of agent turns.
-- It computes a **Pre-Execution Blast Radius** across your workspace before code is edited.
-- It provides **empirical reality probes** to verify ground truth instead of hallucinating.
-- It features a **futuristic cyber-glassmorphic GUI** and a **high-speed CLI**.
+**AetherMind** acts as the agent's **blackbox flight recorder** and **reality engine**:
+- Maintains an explicit **causal hypothesis graph** across dozens of agent turns.
+- Computes a **Pre-Execution Blast Radius** across your workspace before code is modified.
+- Enforces a **4-Gate Safety Pipeline** (`preflight`, `edit-gate`, `test-gate`, `postflight`).
+- Answers the **4 Core Observability Questions** regarding regressions and failure hotspots.
+- Features a **spacious high-readability Web Studio** (7 views) and a **fast CLI**.
+- Native **Model Context Protocol (MCP)** server with automated 1-click installer for Antigravity, Cursor, Windsurf, and Claude Desktop.
 
 ---
 
@@ -53,7 +58,8 @@ Autonomous AI coding agents (Antigravity, Claude Code, Cursor, Copilot, custom a
 
 ### 1. Requirements
 - Node.js `v18.0.0` or higher
-- Works out-of-the-box on **macOS**, **Linux**, and **Windows**
+- Git repository workspace
+- macOS, Linux, or Windows
 
 ### 2. Installation
 ```bash
@@ -68,210 +74,208 @@ npm install
 npm link
 ```
 
-### 3. Launch the Real-Time Dashboard
+### 3. Launch the Real-Time Web Studio
 ```bash
 # Launch GUI on the current project (default port: 4200)
 aethermind ui
 
-# Or launch targeting any specific project folder:
-aethermind ui --dir "/path/to/your/project"
+# Or target a specific project folder:
+aethermind ui --dir "/path/to/project"
 ```
 Open **[http://localhost:4200](http://localhost:4200)** in your browser.
 
 ---
 
-## 🛡️ Agent Gate: Preflight & Postflight Verification
+## 🛡️ Agent Gates: The 4-Stage Safety Pipeline
 
-AetherMind enforces a verified, deterministic agent editing workflow:
+Instead of relying on soft prompt instructions that agents can forget or skip, AetherMind enforces **4 programmatic gates** backed by [`policy-engine.js`](src/core/policy-engine.js):
 
 ```text
-USER INTENT ➔ PREFLIGHT GATE ➔ BLAST RADIUS ➔ REALITY CHECK ➔ CODE EDIT ➔ GIT DELTA ➔ TESTS ➔ POSTFLIGHT GATE ➔ COMMIT
+USER REQUEST ➔ PREFLIGHT ➔ BLAST SCAN ➔ EDIT-GATE ➔ CODE EDIT ➔ TEST-GATE ➔ POSTFLIGHT ➔ COMMIT
 ```
 
-### Preflight Gate (`aethermind gate pre <file>`)
-Validates target files against declared user intent scope, scans blast radius, and ensures no critical unverified assumptions remain unproven:
-```bash
-aethermind gate pre src/auth.js --scope src/auth.js
-```
-Returns: `[PASSED] ALLOWED TO PROCEED` or `[BLOCKED]` with explicit mandatory requirements.
+### 1. Preflight Gate (`aethermind gate pre <file> [--scope <paths>]`)
+- Declares intent and allowed file scope boundaries.
+- Captures a baseline Git working tree snapshot.
+- Evaluates blast radius and verifies that no `CRITICAL` unproven assumptions exist.
 
-### Postflight Gate (`aethermind gate post`)
-Validates AST syntax on all touched files, verifies that coupled test suites were executed, and flags unexpected file modifications outside scope:
+### 2. Edit-Gate (`aethermind gate edit <file> [symbol]`)
+- **Mandatory Pre-Edit Check**: Actively blocks modifications if blast radius analysis has not been conducted on the target file.
+- **Strict Scope Enforcement**: Blocks modification if the file is outside the declared user scope.
+- **Dependency Drift Guard**: Blocks modification of package managers and lockfiles (`package.json`, `pnpm-lock.yaml`, `composer.json`) without explicit permission.
+
 ```bash
-aethermind gate post --tests tests/auth.test.js
+$ aethermind gate edit src/core/state-engine.js
+
+  EDIT GATE: [BLOCKED]
+  ──────────────────────────────────────────────────────────────────
+  Target File:    src/core/state-engine.js
+  Decision:       Blast radius analysis has not been performed on 'src/core/state-engine.js'. Pre-edit scan mandatory.
+  Required Steps: blast, reality_check
 ```
 
-### Git Delta & Scope Guardian (`aethermind delta`)
-Monitors live workspace changes and alerts if unexpected files outside declared intent were modified:
+### 3. Test-Gate (`aethermind gate test [--tests <t1,t2>]`)
+- Scans all modified files and identifies every directly and indirectly coupled test suite.
+- Blocks or issues warnings if coupled test suites have not been executed.
+
+### 4. Postflight Gate (`aethermind gate post [--tests <t>]`)
+- Validates AST syntax integrity on all modified files to eliminate parsing errors.
+- Verifies Git workspace delta against declared scope.
+- Produces the itemized safety checklist:
+  - *Diff inspected* ✓
+  - *AST syntax valid* ✓
+  - *Tests executed* ✓
+  - *Unexpected files: 0* ✓
+  - *Blast assumptions verified* ✓
+
+---
+
+## 📊 Observability & Regression Intelligence
+
+Run `aethermind report` (or `aethermind report --md`) to answer the **4 critical agent reliability questions**:
+
 ```bash
-aethermind delta
+$ aethermind report
+
+  Observability & Regression Intelligence:
+  ──────────────────────────────────────────────────────────────────
+  Total Nodes:       18
+  Verified Premises: 4 verified, 1 falsified
+  Regressions:       1 detected
+
+  1. Which modifications most often cause regressions?
+    • #1: I1: Replaced Map with atomic LRU cache -> O2: Memory leak persisted under concurrency
+
+  2. Which assumptions are most often wrong?
+    • ❌ "Redis cluster is listening on 6379" [Proof: Connection refused at 127.0.0.1:6379]
+
+  3. Which files are repeatedly problematic?
+    • src/auth/token-store.js (3 failure events)
+
+  4. Which tests catch the most errors?
+    • tests/adversarial-test.js (caught 2 regressions)
 ```
+
+Export markdown post-mortems via `aethermind export session-debrief.md` or download directly from the Web Studio.
+
+---
+
+## 🔌 Multi-IDE MCP Integration
+
+AetherMind comes with a built-in automated installer for AI IDEs and editors that support the **Model Context Protocol (MCP)**:
+
+### Check Integration Status
+```bash
+aethermind mcp status
+# or
+npm run mcp:status
+```
+
+```text
+  MCP Server IDE Integration Status:
+  ──────────────────────────────────────────────────────────────────
+  Google Antigravity (AGY)       ✔ Installed          [Detected]
+    ~/.gemini/config/mcp_config.json
+  Cursor                         ✔ Installed          [Detected]
+    ~/.cursor/mcp.json
+  Windsurf (Codeium)             ✔ Installed          [Detected]
+    ~/.codeium/windsurf/mcp_config.json
+  Claude Desktop                 ○ Not configured     [Not found]
+    ~/Library/Application Support/Claude/claude_desktop_config.json
+  Project Local (.cursor/mcp.json) ✔ Installed        [Detected]
+```
+
+### 1-Command Automated Install
+```bash
+# Automatically configure all detected IDEs:
+aethermind mcp install
+
+# Or target a specific IDE:
+aethermind mcp install --ide antigravity
+aethermind mcp install --ide cursor
+aethermind mcp install --ide windsurf
+aethermind mcp install --ide claude
+```
+
+### 13 Native MCP Tools Exposed:
+1. `aethermind_status`: Epistemic coherence metrics, active hypotheses, and unverified assumptions.
+2. `aethermind_intent`: Declare user intent prompt and allowed modification scope.
+3. `aethermind_preflight`: Pre-edit safety check (scope, blast radius, unverified premises).
+4. `aethermind_gate_edit`: Strict edit-gate enforcing blast radius and policy rules.
+5. `aethermind_gate_test`: Verify coupled test suite execution.
+6. `aethermind_postflight`: Post-edit verification (AST syntax, diff stats, scope integrity).
+7. `aethermind_blast`: Analyze downstream callers, transitive consumers, tests, and caveats.
+8. `aethermind_probe`: Run sandboxed reality check and bind factual proof.
+9. `aethermind_record`: Log hypothesis, intervention, or observation node.
+10. `aethermind_diff`: Inspect colored git diff of uncommitted workspace changes.
+11. `aethermind_git_delta`: Inspect working tree modifications vs scope.
+12. `aethermind_audit`: Detect cognitive drift, loop thrashing, and context staleness.
+13. `aethermind_report`: Generate observability & regression intelligence report.
 
 ---
 
 ## 🖥️ High-Readability Web Studio
 
-Launch the spacious, modern developer studio:
+Launch the studio:
 ```bash
 aethermind ui
 ```
-Open **`http://localhost:4200`** in your browser.
+Open **[http://localhost:4200](http://localhost:4200)**.
 
-### 6 Dedicated Full-Width Studios:
+### 7 Dedicated Full-Width Studios:
 1. **🛰️ Cockpit & Telemetry Overview**:
-   - High-contrast KPI cards (Coherence, Entropy, Active Hypotheses, Gate Status).
-   - Live cognitive flight feed & thrashing watchdog with circuit-breaker alerts.
+   - High-contrast KPI cards (Epistemic Coherence, Entropy, Active Hypotheses, Gate Status).
+   - Live cognitive flight feed with action thrashing circuit-breaker (`STOP EDITING`).
 2. **🧠 Epistemic Reasoning Graph**:
-   - Enlarged **260×86px** cards with readable 12.5px bold titles and multi-line descriptions.
-   - Interactive search & highlight filter, zoom/pan controls, and deep-dive inspector drawer.
+   - High-readability **260×86px** cards with bold titles and multi-line descriptions.
+   - Interactive search, zoom/pan controls, and deep-dive node inspector drawer.
 3. **🛡️ Agent Gate & Scope Studio**:
-   - One-click Preflight & Postflight runners with itemized check verdicts.
+   - Interactive runners for all 4 gates (Preflight, Edit-Gate, Test-Gate, Postflight).
    - Side-by-side Git Delta guardian with green "Expected" and red "UNEXPECTED!" alerts.
+   - **MCP IDE Integration card** with 1-click `⚡ Auto-Install to IDEs` button.
 4. **💥 Blast Radius & Radar**:
-   - Large interactive dependency radar (360×240px).
-   - Dynamic reflection and import caveat warnings.
-   - Downstream consumers & coupled test suites list.
+   - Interactive dependency sonar radar (360×240px).
+   - Detection of dynamic imports (`import()`), dynamic `require()`, `eval()`, and reflection.
+   - Direct and transitive downstream callers + coupled test suites.
 5. **🔬 Reality Probes Workbench**:
-   - Interactive empirical test suite (Ports, AST Syntax, Binary PATH, Env vars, Sandboxed Shell).
-   - Direct binding of reality probe proof into the epistemic memory ledger.
+   - Test OS & runtime state (Ports, AST Syntax, Binary PATH, Env vars, Sandboxed Shell).
+   - Direct binding of reality probe output into factual memory (`ASSUMPTION -> PROBE -> CONFIRMED`).
 6. **📋 Flight Ledger & Debrief**:
    - Filterable assumptions table (All / Pending / Verified / High-Risk).
    - Chronological action timeline and one-click markdown session export.
+7. **📊 Regression & Observability Studio**:
+   - Direct visual answers to the 4 core reliability questions.
+   - Instant Markdown report download.
 
 ---
 
-## 🔌 Model Context Protocol (MCP) Server
-
-AetherMind natively supports the **Model Context Protocol (MCP)** over `stdio` JSON-RPC:
-```bash
-npm run mcp
-# or
-node bin/aethermind-mcp.js
-```
-
-### Supported MCP Tools:
-- `aethermind_status`: Get epistemic state & coherence index.
-- `aethermind_intent`: Declare user request prompt and allowed file scope.
-- `aethermind_preflight`: Pre-edit gate check (validates scope, blast, assumptions).
-- `aethermind_postflight`: Post-edit verification (syntax, coupled tests, diff integrity).
-- `aethermind_blast`: Analyze downstream callers, tests, and dynamic caveats.
-- `aethermind_probe`: Run safe reality check and bind factual proof.
-- `aethermind_record`: Log hypothesis, intervention, or observation node.
-- `aethermind_git_delta`: Inspect working tree modifications vs scope.
-- `aethermind_audit`: Detect cognitive drift and action thrashing loops.
-
 ## ⚡ CLI Reference
 
-AetherMind can be run directly from any terminal or subshell:
-
-### 1. Pre-Execution Blast Radius Scan
-Evaluate the downstream impact of changing a file or function before making edits:
-```bash
-aethermind blast <file-path> [symbol-name]
-
-# Examples:
-aethermind blast src/auth.js
-aethermind blast backend/api.php getDbConnection
-aethermind blast next-app/src/proxy.ts --dir "/path/to/project"
-```
-
-**Terminal Output Example:**
-```text
-  ⚡  A E T H E R M I N D  ⚡
-  Autonomous Agent Epistemic Flight Recorder & Dynamic Reality Engine
-  ──────────────────────────────────────────────────────────────────
-
-  Scanning Blast Radius for: backend/config.php
-  ──────────────────────────────────────────────────────────────────
-  Risk Score:     46/100 [HIGH]
-  Direct Callers: 3 files
-  Test Suites:    1 files
-  Files Scanned:  646 workspace code files
-
-  Detected Exports (15):
-    ↳ getDbConnection, logMessage, getConfig, authenticateUser...
-
-  Direct Downstream Dependents:
-    • backend/api.php [uses: getDbConnection]
-    • backend/daemon.php [uses: logMessage]
-
-  Coupled Test Suites:
-    ✔ tests/auth.test.php
-
-  Recommended Sanity Checks:
-    $ npm test -- tests/auth.test.php
-    $ git diff --stat backend/config.php
-```
-
-### 2. Epistemic Action Ledger
-Log reasoning steps so neither you nor the agent lose context:
-```bash
-# Record an investigative premise
-aethermind record hypothesis "H1: Memory leak in token cache" \
-  --details "Unbounded Map retains expired session tokens under load"
-
-# Record an implementation step
-aethermind record intervention "I1: Replaced Map with atomic LRU cache" \
-  --details "Added max: 5000 and ttl: 3600000ms"
-
-# Record empirical evidence or benchmark results
-aethermind record observation "O1: Memory flatlined at 42MB after 10,000 requests" \
-  --details "Zero duplicate entries; P99 latency down 80%"
-```
-
-### 3. Empirical Reality Probes
-Empirically test operating system and runtime assumptions:
-```bash
-# Verify if a port is in use or available
-aethermind probe port 4200
-
-# Validate syntax and AST integrity
-aethermind probe syntax src/server.js
-
-# Check environment variable existence
-aethermind probe env DATABASE_URL
-
-# Comprehensive system health scan (Node, Python, Git, Ports)
-aethermind probe
-```
-
-### 4. Cognitive Drift Audit
-Audit the current session for circular loops, context staleness, and unverified assumptions:
-```bash
-aethermind audit
-```
-
-**Audit Output Example:**
-```text
-  Cognitive Drift & Reality Coherence Audit:
-  ──────────────────────────────────────────────────────────────────
-  Status:       MODERATE_DRIFT (40/100)
-
-  Detected Anomalies (1):
-  [HIGH] 1 High-Risk Assumptions Unverified
-    Crucial assumptions like "Redis is listening on port 6379" have not been proven against reality.
-
-  Agent Directives:
-    → Run automated verification for: "Redis is listening on port 6379"
-```
-
-### 5. Export Epistemic Post-Mortem Debrief
-Generate a clean Markdown report of the session's entire causal tree and proof:
-```bash
-aethermind export session-debrief.md
-```
-
-### 6. Clean Session Telemetry
-Reset the active telemetry state store for a fresh start:
-```bash
-aethermind clean
-```
+| Command | Description |
+|---|---|
+| `aethermind ui [--port <p>]` | Launch High-Readability Web Studio (default: 4200) |
+| `aethermind gate pre <file> [scope]` | Enforce Preflight Gate before code edit |
+| `aethermind gate edit <file> [sym]` | Enforce Edit Gate with policy rules |
+| `aethermind gate test [tests]` | Enforce Test Gate on coupled test suites |
+| `aethermind gate post [--tests <t>]` | Enforce Postflight Gate after modifications |
+| `aethermind diff` | Inspect colored git diff of uncommitted changes |
+| `aethermind delta` | Inspect working tree delta & scope validation |
+| `aethermind report [--md]` | Observability & regression intelligence report |
+| `aethermind intent "<prompt>" [scope]` | Declare explicit user intent & allowed scope |
+| `aethermind blast <file> [sym]` | Scan blast radius, dynamic caveats & risk score |
+| `aethermind record <type> <title>` | Log hypothesis, intervention, or observation node |
+| `aethermind probe [check] [target]` | Run safe reality check & bind proof |
+| `aethermind audit` | Audit cognitive drift & action thrashing loops |
+| `aethermind mcp install [--ide <name>]` | Auto-install MCP to Antigravity, Cursor, Windsurf, Claude |
+| `aethermind mcp status` | Inspect MCP integration status across IDEs |
+| `aethermind mcp` | Run stdio Model Context Protocol (MCP) server |
+| `aethermind export [file.md]` | Export markdown session debrief |
+| `aethermind clean` | Reset telemetry session data |
+| `aethermind demo` | Load synthetic multi-stage flight trajectory & launch UI |
 
 ---
 
 ## 🌐 REST & WebSocket API
-
-Any external agent or tool can interact with AetherMind via standard HTTP/JSON and WebSockets:
 
 | Method | Endpoint | Description |
 |---|---|---|
@@ -280,38 +284,21 @@ Any external agent or tool can interact with AetherMind via standard HTTP/JSON a
 | `PATCH` | `/api/node/:id` | Updates node status (`active`, `confirmed`, `refuted`), confidence, or notes |
 | `POST` | `/api/assumption` | Registers a new premise to verify |
 | `POST` | `/api/assumption/:id/verify` | Records proof and marks an assumption verified |
-| `GET` | `/api/blast?file=...&symbol=...` | Returns JSON dependency analysis and risk score |
+| `GET` | `/api/blast?file=...&symbol=...` | Returns JSON dependency analysis, caveats, and risk score |
 | `GET` | `/api/drift` | Runs cognitive drift and loop detection audit |
-| `POST` | `/api/probe` | Executes empirical probe (`port`, `syntax`, `env`, `exec`) |
-| `POST` | `/api/demo` | Seeds a rich simulated agent reasoning trajectory |
-| `POST` | `/api/reset` | Resets the telemetry store |
+| `POST` | `/api/probe` | Executes empirical probe (`port`, `syntax`, `command`, `env`, `exec`) |
+| `POST` | `/api/gate/preflight` | Evaluates preflight gate check |
+| `POST` | `/api/gate/edit` | Evaluates edit-gate with policy engine |
+| `POST` | `/api/gate/test` | Evaluates test-gate on coupled test suites |
+| `POST` | `/api/gate/postflight` | Evaluates postflight verification |
+| `GET` | `/api/git/delta` | Live working tree changes vs declared scope |
+| `GET` | `/api/git/diff` | Returns raw working tree diff |
+| `GET` | `/api/report` | Returns JSON observability & regression report |
+| `GET` | `/api/report/markdown` | Returns Markdown formatted regression report |
+| `GET` | `/api/mcp/status` | Returns MCP integration status across IDEs |
+| `POST` | `/api/mcp/install` | Auto-installs MCP configuration into IDEs |
+| `POST` | `/api/mcp/uninstall` | Removes MCP configuration from IDEs |
 | `WS` | `ws://localhost:4200` | Real-time bidirectional WebSocket event stream |
-
----
-
-## 🤖 AI Agent Integration
-
-### Antigravity IDE (Gemini / Antigravity Agents)
-AetherMind includes built-in support for Antigravity rules and skills.
-
-1. **Global Rule** (`~/.gemini/config/GEMINI.md`):
-```markdown
-# Cognitive Architecture Protocol
-Always use **AetherMind** (`aethermind`) as your epistemic flight recorder and reality engine:
-- Run `aethermind blast <file> [symbol]` before modifying code to evaluate downstream impact.
-- Track reasoning using `aethermind record hypothesis|intervention|observation`.
-- Run `aethermind probe` to empirically verify assumptions (ports, syntax, env).
-- Run `aethermind audit` when diagnosing failures or resolving repetitive loops.
-```
-
-2. **Global Skill** (`~/.gemini/config/skills/aethermind/SKILL.md`):
-The skill is registered and can be loaded automatically by Antigravity agents on demand.
-
-### Claude Code, Cursor, Copilot, or Custom Agents
-Add this instruction to your project's `.cursorrules`, `CLAUDE.md`, or system prompt:
-```markdown
-Before modifying any multi-file code, run `aethermind blast <file>` to inspect dependent callers and test suites. Log your reasoning using `aethermind record hypothesis|intervention|observation`.
-```
 
 ---
 
@@ -320,45 +307,72 @@ Before modifying any multi-file code, run `aethermind blast <file>` to inspect d
 ```text
 aethermind/
 ├── bin/
-│   └── aethermind.js          # Cross-platform CLI executable
+│   ├── aethermind.js          # Cross-platform CLI executable
+│   └── aethermind-mcp.js      # Stdio Model Context Protocol (MCP) server binary
 ├── src/
 │   ├── core/
-│   │   ├── state-engine.js    # Epistemic state DAG, entropy calculator, and event ledger
-│   │   ├── blast-radius.js    # AST dependency, exports, and caller impact analyzer
+│   │   ├── state-engine.js    # Epistemic DAG, multi-agent attribution & telemetry
+│   │   ├── blast-radius.js    # Canonical path resolution, re-exports & caveats
 │   │   ├── reality-probe.js   # Hardened empirical OS verification (ports, syntax, env)
-│   │   └── drift-detector.js  # Circular loop and context staleness detection engine
+│   │   ├── drift-detector.js  # Circular loop & action thrashing circuit-breaker
+│   │   ├── git-observer.js    # Working tree status, diff inspection & delta calculation
+│   │   ├── intent-engine.js   # User scope boundary & dependency drift protection
+│   │   ├── policy-engine.js   # Gate policy rules (strictScope, blastRequirement)
+│   │   ├── agent-gate.js      # The 4-gate verification engine (pre, edit, test, post)
+│   │   └── regression-reporter.js # Answers the 4 observability & regression questions
+│   ├── mcp/
+│   │   ├── server.js          # Stdio JSON-RPC 2.0 MCP server (13 tools)
+│   │   └── installer.js       # Multi-IDE automated MCP configuration engine
 │   ├── server/
 │   │   ├── app.js             # Express & WebSocket live telemetry server
-│   │   └── routes.js          # REST API controller
-│   └── public/                # Cyber-Glassmorphic GUI
-│       ├── index.html         # Modern semantic dashboard interface
-│       ├── styles.css         # Custom dark-theme glassmorphism design system
+│   │   └── routes.js          # REST API controller with full gate & report routes
+│   └── public/                # High-Readability Cyber-Glassmorphic GUI
+│       ├── index.html         # Semantic 7-view studio interface
+│       ├── styles.css         # Dark-mode design system with 14px base font
 │       ├── app.js             # Frontend WebSocket controller & state binding
 │       └── components/
 │           ├── neural-graph.js # Interactive HTML5 Canvas causal reasoning DAG
 │           └── blast-radar.js  # Orbital sonar radar visualizer
 ├── tests/
-│   └── e2e-test.js            # Automated hermetic verification suite (18/18 tests)
+│   ├── e2e-test.js            # End-to-end system verification (28 tests)
+│   ├── adversarial-test.js    # Security & boundary guards test suite (7 tests)
+│   └── blast-matrix-test.js   # False-positive/negative & circular deps suite (9 tests)
 ├── package.json
 └── README.md
 ```
 
 ---
 
-## 🔒 Security & Privacy
+## 🧪 Automated Test Verification
 
-- **100% Local**: All data, telemetry, and graphs remain strictly on your local machine in `.aethermind/`. Zero cloud calls or third-party tracking.
-- **Zero Shell Interpolation**: All reality probes use `execFileSync` with argument arrays to prevent shell injection vulnerabilities.
-- **Audited**: `0 vulnerabilities` reported by `npm audit`.
-
----
-
-## 🧪 Running Automated Tests
+AetherMind is verified by **44 automated tests** across 3 test suites:
 
 ```bash
 npm test
 ```
-Runs the hermetic 18-point verification suite testing static asset delivery, REST APIs, WebSocket broadcasts, blast radius algorithms, reality probes, and drift detection.
+
+```text
+⚡ AETHERMIND AUTOMATED SYSTEM & E2E VERIFICATION ⚡
+  ✔ ALL SYSTEMS NOMINAL: 28 PASSED / 28 TOTAL
+
+⚡ AETHERMIND ADVERSARIAL & SAFETY MATRIX VERIFICATION ⚡
+  ✔ ALL ADVERSARIAL & SAFETY GUARDS VERIFIED: 7 PASSED / 7 TOTAL
+
+🧪 Running AetherMind Adversarial & Blast-Matrix Test Suite...
+  ✔ ALL 9 ADVERSARIAL BLAST-MATRIX TESTS PASSED: 9 PASSED / 9 TOTAL
+
+──────────────────────────────────────────────────────────────────
+  Test Results: 44 PASSED / 44 TOTAL (100% Success Rate)
+```
+
+---
+
+## 🔒 Security & Privacy
+
+- **100% Local-First**: All telemetry and epistemic graphs remain strictly in `.aethermind/`. Zero cloud calls or tracking.
+- **Safe Command Sandboxing**: Reality probes use `execFileSync` with argument arrays and a strict command allowlist. Chained shell commands (`|`, `;`, `&&`) are blocked.
+- **Secret Redaction**: Environment variable probes automatically redact sensitive tokens (`KEY`, `SECRET`, `PASSWORD`, `TOKEN`).
+- **Audited**: `0 vulnerabilities` via `npm audit`.
 
 ---
 
