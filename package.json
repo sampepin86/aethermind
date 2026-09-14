@@ -21,7 +21,12 @@
     "blast-radius",
     "drift-detection"
   ],
-  "author": "Autonomous Agent Lab",
+  "author": "Samuel Pepin <sampepin86>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sampepin86/aethermind.git"
+  },
+  "homepage": "https://github.com/sampepin86/aethermind#readme",
   "license": "MIT",
   "dependencies": {
     "express": "^4.21.2",

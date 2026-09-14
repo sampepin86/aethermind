@@ -5,7 +5,7 @@
 **Autonomous Agent Epistemic Flight Recorder & Dynamic Reality Engine**  
 *The cognitive co-processor that keeps AI coding agents grounded, regression-free, and accountable.*
 
-[![Version](https://img.shields.io/badge/version-1.0.0-cyan.svg?style=flat-square)](https://github.com/your-username/aethermind)
+[![Version](https://img.shields.io/badge/version-1.0.0-cyan.svg?style=flat-square)](https://github.com/sampepin86/aethermind)
 [![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg?style=flat-square)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-emerald.svg?style=flat-square)](https://nodejs.org)
 [![Tests](https://img.shields.io/badge/tests-18%2F18%20passing-10b981.svg?style=flat-square)](tests/e2e-test.js)
@@ -58,7 +58,7 @@ Autonomous AI coding agents (Antigravity, Claude Code, Cursor, Copilot, custom a
 ### 2. Installation
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/aethermind.git
+git clone https://github.com/sampepin86/aethermind.git
 cd aethermind
 
 # Install lightweight dependencies
