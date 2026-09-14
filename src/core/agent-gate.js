@@ -3,14 +3,17 @@ const BlastRadiusAnalyzer = require('./blast-radius');
 const RealityProbeMatrix = require('./reality-probe');
 const GitObserver = require('./git-observer');
 const UserIntentEngine = require('./intent-engine');
+const PolicyEngine = require('./policy-engine');
 
 class AgentGate {
-  constructor(stateEngine, workspaceDir = process.cwd(), intentEngine = null) {
+  constructor(stateEngine, workspaceDir = process.cwd(), intentEngine = null, policyEngine = null) {
     this.workspaceDir = workspaceDir;
     this.stateEngine = stateEngine;
     this.intentEngine = intentEngine || new UserIntentEngine(workspaceDir);
+    this.policyEngine = policyEngine || new PolicyEngine(workspaceDir);
     this.gitObserver = new GitObserver(workspaceDir);
     this.blastAnalyzer = new BlastRadiusAnalyzer(workspaceDir);
+    this.checkedBlastFiles = new Set();
   }
 
   evaluatePreflight({
@@ -84,6 +87,7 @@ class AgentGate {
     let highestRiskLevel = 'LOW';
 
     for (const target of normalizedTargets) {
+      this.checkedBlastFiles.add(target);
       const sym = targetSymbols[0] || null;
       const blast = this.blastAnalyzer.analyze(target, sym);
       blastResults.push(blast);
@@ -179,6 +183,107 @@ class AgentGate {
     );
 
     return report;
+  }
+
+  evaluateEditGate({ file, symbol = null, agent = { name: 'agent', model: 'unknown' } }) {
+    if (!file) {
+      return {
+        gate: 'EDIT_GATE',
+        allowed: false,
+        reason: 'no_target_file_specified',
+        required: ['target_file']
+      };
+    }
+
+    const relFile = path.isAbsolute(file)
+      ? path.relative(this.workspaceDir, file).split(path.sep).join('/')
+      : file.split(path.sep).join('/');
+
+    // 1. Check if blast radius scan was conducted on this target
+    const isBlastChecked = this.checkedBlastFiles.has(file) || this.checkedBlastFiles.has(relFile);
+    if (!isBlastChecked && this.policyEngine.rules.requireBlastCheck) {
+      return {
+        gate: 'EDIT_GATE',
+        allowed: false,
+        reason: 'blast_radius_not_checked',
+        required: ['blast', 'reality_check'],
+        message: `Blast radius analysis has not been performed on '${relFile}'. Pre-edit scan mandatory.`
+      };
+    }
+
+    // 2. Evaluate Policy Engine
+    const blastResult = this.blastAnalyzer.analyze(file, symbol);
+    this.checkedBlastFiles.add(file);
+    this.checkedBlastFiles.add(relFile);
+
+    const intent = this.intentEngine.getIntent();
+    const state = this.stateEngine.getState();
+    const policyResult = this.policyEngine.evaluateEditPolicy({
+      file: relFile,
+      intent,
+      blastResult,
+      state
+    });
+
+    if (!policyResult.allowed) {
+      const topViolation = policyResult.violations[0];
+      return {
+        gate: 'EDIT_GATE',
+        allowed: false,
+        reason: topViolation.policy,
+        severity: topViolation.severity,
+        required: topViolation.policy === 'strictScope'
+          ? ['request_scope_expansion']
+          : (topViolation.policy === 'blockOnCriticalAssumptions' ? ['reality_probe'] : ['policy_override']),
+        message: topViolation.message,
+        violations: policyResult.violations,
+        warnings: policyResult.warnings
+      };
+    }
+
+    return {
+      gate: 'EDIT_GATE',
+      allowed: true,
+      status: 'ALLOWED',
+      file: relFile,
+      riskScore: blastResult.metrics.riskScore,
+      riskLevel: blastResult.metrics.riskLevel,
+      warnings: policyResult.warnings,
+      message: `Modification allowed for ${relFile}. Blast risk: ${blastResult.metrics.riskLevel} (${blastResult.metrics.riskScore}/100)`
+    };
+  }
+
+  evaluateTestGate({ modifiedFiles = [], executedTests = [], agent = { name: 'agent', model: 'unknown' } }) {
+    const delta = this.gitObserver.computeDelta();
+    const actualModifiedFiles = modifiedFiles.length > 0
+      ? modifiedFiles
+      : delta.rawFiles.map(f => f.file);
+
+    const coupledTestSuites = new Set();
+    for (const file of actualModifiedFiles) {
+      const blast = this.blastAnalyzer.analyze(file);
+      blast.testSuites.forEach(t => coupledTestSuites.add(t.file));
+    }
+
+    const testPolicy = this.policyEngine.evaluateTestPolicy({
+      modifiedFiles: actualModifiedFiles,
+      coupledTests: Array.from(coupledTestSuites),
+      executedTests
+    });
+
+    return {
+      gate: 'TEST_GATE',
+      allowed: testPolicy.allowed,
+      passed: testPolicy.passed,
+      modifiedFiles: actualModifiedFiles,
+      coupledCount: testPolicy.coupledCount,
+      executedCount: testPolicy.executedCount,
+      missingTests: testPolicy.missingTests,
+      status: testPolicy.allowed ? (testPolicy.passed ? 'PASSED' : 'ALLOWED_WITH_WARNINGS') : 'BLOCKED',
+      message: testPolicy.passed
+        ? `All coupled test suites (${testPolicy.coupledCount}) verified.`
+        : `${testPolicy.missingTests.length} coupled test suite(s) require execution: ${testPolicy.missingTests.join(', ')}`
+    };
   }
 
   evaluatePostflight({

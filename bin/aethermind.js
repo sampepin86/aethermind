@@ -10,6 +10,7 @@ const EpistemicStateEngine = require('../src/core/state-engine');
 const GitObserver = require('../src/core/git-observer');
 const UserIntentEngine = require('../src/core/intent-engine');
 const AgentGate = require('../src/core/agent-gate');
+const RegressionReporter = require('../src/core/regression-reporter');
 const AetherMindMcpServer = require('../src/mcp/server');
 const { loadDemoSimulation } = require('../src/server/routes');
 
@@ -284,12 +285,61 @@ async function main() {
     case 'preflight':
     case 'gate': {
       banner();
-      const sub = args[1]; // 'pre' or 'post'
-      const targetFile = (sub === 'pre' || sub === 'post') ? args[2] : args[1];
+      const sub = args[1]; // 'pre' | 'edit' | 'test' | 'post'
+      const targetFile = (sub === 'pre' || sub === 'edit' || sub === 'post') ? args[2] : args[1];
 
       const engine = new EpistemicStateEngine(workspaceDir);
       const intentEngine = new UserIntentEngine(workspaceDir);
       const gate = new AgentGate(engine, workspaceDir, intentEngine);
+
+      if (sub === 'edit') {
+        if (!targetFile) {
+          console.log(`\n  ${c.red}Error:${c.reset} Specify target file for edit-gate.`);
+          console.log(`  Usage: ${c.yellow}aethermind gate edit <file> [symbol]${c.reset}\n`);
+          process.exit(1);
+        }
+        const symbol = args[3] || null;
+        const report = gate.evaluateEditGate({ file: targetFile, symbol });
+        const col = report.allowed ? c.green : c.red;
+        console.log(`\n  ${col}${c.bright}EDIT GATE: [${report.allowed ? 'ALLOWED' : 'BLOCKED'}]${c.reset}`);
+        console.log(`  ${c.gray}──────────────────────────────────────────────────────────────────${c.reset}`);
+        console.log(`  Target File:    ${c.bright}${targetFile}${c.reset}`);
+        console.log(`  Decision:       ${col}${report.message || (report.allowed ? 'Approved for modification' : 'Blocked by policy')}${c.reset}`);
+        if (!report.allowed && report.required) {
+          console.log(`  Required Steps: ${c.yellow}${report.required.join(', ')}${c.reset}`);
+        }
+        if (report.warnings && report.warnings.length > 0) {
+          report.warnings.forEach(w => console.log(`  ${c.yellow}⚠ [${w.policy}]: ${w.message}${c.reset}`));
+        }
+        console.log('');
+        if (!report.allowed) process.exit(1);
+        break;
+      }
+
+      if (sub === 'test') {
+        const testsIdx = args.indexOf('--tests');
+        let executedTests = [];
+        if (testsIdx !== -1 && args[testsIdx + 1]) {
+          executedTests = args[testsIdx + 1].split(',').map(t => t.trim());
+        } else if (args.slice(2).length > 0 && !args[2].startsWith('-')) {
+          executedTests = args.slice(2);
+        }
+
+        const report = gate.evaluateTestGate({ executedTests });
+        const col = report.passed ? c.green : (report.allowed ? c.yellow : c.red);
+        console.log(`\n  ${col}${c.bright}TEST GATE: [${report.status}]${c.reset}`);
+        console.log(`  ${c.gray}──────────────────────────────────────────────────────────────────${c.reset}`);
+        console.log(`  Coupled Tests:  ${report.coupledCount} test suites`);
+        console.log(`  Executed Tests: ${report.executedCount} test suites`);
+        console.log(`  Status:         ${col}${report.message}${c.reset}`);
+        if (report.missingTests && report.missingTests.length > 0) {
+          console.log(`\n  ${c.yellow}${c.bright}Missing Coupled Tests:${c.reset}`);
+          report.missingTests.forEach(t => console.log(`    ${c.yellow}• ${t}${c.reset}`));
+        }
+        console.log('');
+        if (!report.allowed) process.exit(1);
+        break;
+      }
 
       if (sub === 'post' || command === 'postflight') {
         const testsIdx = args.indexOf('--tests');
@@ -356,6 +406,76 @@ async function main() {
       break;
     }
 
+    case 'diff': {
+      banner();
+      const observer = new GitObserver(workspaceDir);
+      const diffStat = observer.getDiffStat();
+      const diffRaw = observer.getWorkingTreeDiff();
+      console.log(`\n  ${c.bright}Workspace Git Diff Inspector:${c.reset}`);
+      console.log(`  ${c.gray}──────────────────────────────────────────────────────────────────${c.reset}`);
+      console.log(`  Files Changed: ${diffStat.filesChanged} | +${c.green}${diffStat.insertions}${c.reset} / -${c.red}${diffStat.deletions}${c.reset} lines\n`);
+      if (diffRaw.diff) {
+        // Output diff with basic coloring
+        diffRaw.diff.split('\n').forEach(line => {
+          if (line.startsWith('+') && !line.startsWith('+++')) console.log(c.green + line + c.reset);
+          else if (line.startsWith('-') && !line.startsWith('---')) console.log(c.red + line + c.reset);
+          else if (line.startsWith('@@')) console.log(c.cyan + line + c.reset);
+          else console.log(c.gray + line + c.reset);
+        });
+      } else {
+        console.log(`  ${c.green}✔ Clean working tree. No uncommitted modifications.${c.reset}`);
+      }
+      console.log('');
+      break;
+    }
+
+    case 'report':
+    case 'analytics': {
+      banner();
+      const engine = new EpistemicStateEngine(workspaceDir);
+      const reporter = new RegressionReporter(engine);
+      if (args.includes('--md') || args.includes('--markdown')) {
+        console.log(reporter.generateMarkdown());
+      } else {
+        const rep = reporter.generateReport();
+        console.log(`\n  ${c.bright}Observability & Regression Intelligence:${c.reset}`);
+        console.log(`  ${c.gray}──────────────────────────────────────────────────────────────────${c.reset}`);
+        console.log(`  Total Nodes:      ${rep.metrics.totalNodes}`);
+        console.log(`  Verified Premises:${c.green} ${rep.metrics.verifiedCount}${c.reset} verified, ${c.red}${rep.metrics.falseAssumptionsCount} falsified${c.reset}`);
+        console.log(`  Regressions:      ${rep.metrics.regressionsCount === 0 ? c.green + '0 (nominal)' : c.red + rep.metrics.regressionsCount + ' detected'}${c.reset}`);
+
+        console.log(`\n  ${c.bright}1. Which modifications most often cause regressions?${c.reset}`);
+        if (rep.regressions.length === 0) {
+          console.log(`    ${c.green}✔ No code modifications have caused detected regressions.${c.reset}`);
+        } else {
+          rep.regressions.forEach((r, i) => console.log(`    ${c.red}• #${i+1}: ${r.interventionTitle} -> ${r.observationTitle}${c.reset}`));
+        }
+
+        console.log(`\n  ${c.bright}2. Which assumptions are most often wrong?${c.reset}`);
+        if (rep.falseAssumptions.length === 0) {
+          console.log(`    ${c.green}✔ No verified premises have been refuted.${c.reset}`);
+        } else {
+          rep.falseAssumptions.forEach(a => console.log(`    ${c.red}• "${a.premise}" [Proof: ${a.proof}]${c.reset}`));
+        }
+
+        console.log(`\n  ${c.bright}3. Which files are repeatedly problematic?${c.reset}`);
+        if (rep.problematicFiles.length === 0) {
+          console.log(`    ${c.green}✔ No files have recorded repetitive failure events.${c.reset}`);
+        } else {
+          rep.problematicFiles.forEach(f => console.log(`    ${c.yellow}• ${f.file} (${f.failureCount} failures)${c.reset}`));
+        }
+
+        console.log(`\n  ${c.bright}4. Which tests catch the most errors?${c.reset}`);
+        if (rep.topDefensiveTests.length === 0) {
+          console.log(`    ${c.green}✔ All test executions passing without defensive intercepts.${c.reset}`);
+        } else {
+          rep.topDefensiveTests.forEach(t => console.log(`    ${c.cyan}• ${t.testSuite} (caught ${t.catchCount} regressions)${c.reset}`));
+        }
+        console.log('');
+      }
+      break;
+    }
+
     case 'delta': {
       banner();
       const observer = new GitObserver(workspaceDir);
@@ -415,15 +535,20 @@ async function main() {
       console.log(`\n  ${c.bright}Available Commands:${c.reset}`);
       console.log(`    ${c.cyan}aethermind ui${c.reset}                         Launch the High-Readability Web Studio`);
       console.log(`    ${c.cyan}aethermind gate pre <file> [scope]${c.reset}    Enforce Preflight Gate before code edit`);
+      console.log(`    ${c.cyan}aethermind gate edit <file> [sym]${c.reset}     Enforce Edit Gate with policy rules`);
+      console.log(`    ${c.cyan}aethermind gate test [tests]${c.reset}          Enforce Test Gate on coupled test suites`);
       console.log(`    ${c.cyan}aethermind gate post [--tests <t>]${c.reset}    Enforce Postflight Gate after modifications`);
-      console.log(`    ${c.cyan}aethermind intent "<prompt>" [scope]${c.reset}  Declare explicit user intent & allowed scope`);
-      console.log(`    ${c.cyan}aethermind delta${c.reset}                      Inspect workspace changes & detect unexpected files`);
-      console.log(`    ${c.cyan}aethermind blast <file> [sym]${c.reset}         Scan blast radius, dynamic caveats & risk`);
-      console.log(`    ${c.cyan}aethermind record <type> <title>${c.reset}      Log hypothesis, intervention, or observation`);
-      console.log(`    ${c.cyan}aethermind probe [check] [target]${c.reset}     Run safe reality check & bind proof`);
-      console.log(`    ${c.cyan}aethermind audit${c.reset}                      Audit cognitive drift & thrashing loops`);
-      console.log(`    ${c.cyan}aethermind mcp${c.reset}                        Run stdio Model Context Protocol (MCP) server`);
-      console.log(`    ${c.cyan}aethermind demo${c.reset}                       Load synthetic flight scenario & launch UI`);
+      console.log(`    ${c.cyan}aethermind diff${c.reset}                        Inspect colored git diff of uncommitted changes`);
+      console.log(`    ${c.cyan}aethermind delta${c.reset}                       Inspect working tree delta & scope validation`);
+      console.log(`    ${c.cyan}aethermind report [--md]${c.reset}               Observability & regression intelligence report`);
+      console.log(`    ${c.cyan}aethermind intent "<prompt>" [scope]${c.reset}   Declare explicit user intent & allowed scope`);
+      console.log(`    ${c.cyan}aethermind blast <file> [sym]${c.reset}          Scan blast radius, dynamic caveats & risk`);
+      console.log(`    ${c.cyan}aethermind record <type> <title>${c.reset}       Log hypothesis, intervention, or observation`);
+      console.log(`    ${c.cyan}aethermind probe [check] [target]${c.reset}      Run safe reality check & bind proof`);
+      console.log(`    ${c.cyan}aethermind audit${c.reset}                       Audit cognitive drift & thrashing loops`);
+      console.log(`    ${c.cyan}aethermind export [file.md]${c.reset}             Export markdown session debrief`);
+      console.log(`    ${c.cyan}aethermind mcp${c.reset}                         Run stdio Model Context Protocol (MCP) server`);
+      console.log(`    ${c.cyan}aethermind demo${c.reset}                        Load synthetic flight scenario & launch UI`);
       console.log('');
       break;
     }

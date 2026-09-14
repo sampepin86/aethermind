@@ -105,8 +105,16 @@ function initUIComponents() {
 
   // Agent Gate Studio Buttons
   document.getElementById('btn-run-preflight')?.addEventListener('click', runPreflightGate);
+  document.getElementById('btn-run-edit-gate')?.addEventListener('click', runEditGate);
+  document.getElementById('btn-run-test-gate')?.addEventListener('click', runTestGate);
   document.getElementById('btn-run-postflight')?.addEventListener('click', runPostflightGate);
   document.getElementById('btn-refresh-delta')?.addEventListener('click', fetchGitDelta);
+
+  // Observability & Regression Report Buttons
+  document.getElementById('btn-refresh-report')?.addEventListener('click', fetchRegressionReport);
+  document.getElementById('btn-export-report-md')?.addEventListener('click', () => {
+    window.open('/api/report/markdown', '_blank');
+  });
 
   // Reality Probes Buttons
   document.getElementById('btn-exec-port-probe')?.addEventListener('click', runPortProbe);
@@ -150,6 +158,8 @@ function switchView(viewId) {
     runBlastScan();
   } else if (viewId === 'gate') {
     fetchGitDelta();
+  } else if (viewId === 'report') {
+    fetchRegressionReport();
   }
 }
 
@@ -501,6 +511,151 @@ async function runPostflightGate() {
     renderGateReport(report);
   } catch (err) {
     console.error('Postflight gate failed', err);
+  }
+}
+
+async function runEditGate() {
+  const target = document.getElementById('input-gate-target').value.trim();
+  try {
+    const res = await fetch('/api/gate/edit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file: target })
+    });
+    const report = await res.json();
+    renderGateReport({
+      gate: 'EDIT',
+      status: report.allowed ? 'ALLOWED' : 'BLOCKED',
+      allowed: report.allowed,
+      checks: [
+        {
+          name: 'Policy Rule Evaluation',
+          passed: report.allowed,
+          severity: report.allowed ? 'INFO' : 'CRITICAL',
+          message: report.message || (report.allowed ? 'Modification permitted by active policy.' : 'Modification blocked.')
+        }
+      ],
+      requiredActions: report.required || []
+    });
+  } catch (err) {
+    console.error('Edit gate check failed', err);
+  }
+}
+
+async function runTestGate() {
+  const target = document.getElementById('input-gate-target').value.trim();
+  try {
+    const res = await fetch('/api/gate/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ modifiedFiles: [target], executedTests: [] })
+    });
+    const report = await res.json();
+    renderGateReport({
+      gate: 'TEST',
+      status: report.status,
+      allowed: report.allowed,
+      checks: [
+        {
+          name: 'Coupled Test Verification',
+          passed: report.passed,
+          severity: report.passed ? 'INFO' : 'HIGH',
+          message: report.message
+        }
+      ],
+      requiredActions: report.missingTests ? report.missingTests.map(t => `Run test suite: ${t}`) : []
+    });
+  } catch (err) {
+    console.error('Test gate check failed', err);
+  }
+}
+
+async function fetchRegressionReport() {
+  try {
+    const res = await fetch('/api/report');
+    const data = await res.json();
+
+    // KPIs
+    const elSteps = document.getElementById('report-stat-steps');
+    if (elSteps) elSteps.textContent = data.metrics.totalNodes;
+    const elVer = document.getElementById('report-stat-verified');
+    if (elVer) elVer.textContent = data.metrics.verifiedCount;
+    const elFal = document.getElementById('report-stat-falsified');
+    if (elFal) elFal.textContent = data.metrics.falseAssumptionsCount;
+    const elReg = document.getElementById('report-stat-regressions');
+    if (elReg) elReg.textContent = data.metrics.regressionsCount;
+
+    // Q1: Regressions
+    const q1Box = document.getElementById('obs-q1-content');
+    if (q1Box) {
+      if (!data.regressions || data.regressions.length === 0) {
+        q1Box.innerHTML = `<div class="obs-item"><span style="color:var(--emerald-core);font-weight:600;">✔ No code interventions caused detected regressions.</span><p class="obs-item-meta">Nominal flight integrity across all causal steps.</p></div>`;
+      } else {
+        q1Box.innerHTML = data.regressions.map((r, i) => `
+          <div class="obs-item">
+            <div class="obs-item-header">
+              <span class="obs-item-title" style="color:var(--rose-core);font-weight:600;">#${i+1}: ${escapeHtml(r.interventionTitle)}</span>
+              <span class="obs-item-meta">${new Date(r.timestamp).toLocaleTimeString()}</span>
+            </div>
+            <div class="obs-item-proof">Refuting Evidence: ${escapeHtml(r.observationTitle)}</div>
+          </div>
+        `).join('');
+      }
+    }
+
+    // Q2: False Assumptions
+    const q2Box = document.getElementById('obs-q2-content');
+    if (q2Box) {
+      if (!data.falseAssumptions || data.falseAssumptions.length === 0) {
+        q2Box.innerHTML = `<div class="obs-item"><span style="color:var(--emerald-core);font-weight:600;">✔ No verified premises have been refuted.</span><p class="obs-item-meta">All confirmed assumptions hold empirical consistency.</p></div>`;
+      } else {
+        q2Box.innerHTML = data.falseAssumptions.map(a => `
+          <div class="obs-item">
+            <div class="obs-item-header">
+              <span class="obs-item-title" style="color:var(--rose-core);font-weight:600;">❌ ${escapeHtml(a.premise)}</span>
+              <span class="badge-rose" style="padding:2px 8px;border-radius:4px;font-size:0.75rem;">${a.riskLevel} RISK</span>
+            </div>
+            <div class="obs-item-proof">Empirical Counter-Proof: ${escapeHtml(a.proof)}</div>
+          </div>
+        `).join('');
+      }
+    }
+
+    // Q3: Problematic Files
+    const q3Box = document.getElementById('obs-q3-content');
+    if (q3Box) {
+      if (!data.problematicFiles || data.problematicFiles.length === 0) {
+        q3Box.innerHTML = `<div class="obs-item"><span style="color:var(--emerald-core);font-weight:600;">✔ No problematic files flagged.</span><p class="obs-item-meta">Zero files with recurring failure events.</p></div>`;
+      } else {
+        q3Box.innerHTML = data.problematicFiles.map(f => `
+          <div class="obs-item">
+            <div class="obs-item-header">
+              <span class="obs-item-title" style="font-family:var(--font-mono);color:var(--amber-core);">📄 ${escapeHtml(f.file)}</span>
+              <span class="badge-amber" style="padding:2px 8px;border-radius:4px;font-size:0.75rem;">${f.failureCount} failure(s)</span>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+
+    // Q4: Top Defensive Tests
+    const q4Box = document.getElementById('obs-q4-content');
+    if (q4Box) {
+      if (!data.topDefensiveTests || data.topDefensiveTests.length === 0) {
+        q4Box.innerHTML = `<div class="obs-item"><span style="color:var(--emerald-core);font-weight:600;">✔ All test suites nominal.</span><p class="obs-item-meta">Test suites passing without active defensive intercepts.</p></div>`;
+      } else {
+        q4Box.innerHTML = data.topDefensiveTests.map(t => `
+          <div class="obs-item">
+            <div class="obs-item-header">
+              <span class="obs-item-title" style="font-family:var(--font-mono);color:var(--cyan-core);">🧪 ${escapeHtml(t.testSuite)}</span>
+              <span class="badge-cyan" style="padding:2px 8px;border-radius:4px;font-size:0.75rem;">${t.catchCount} regressions caught</span>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+  } catch (err) {
+    console.error('Failed to fetch regression report', err);
   }
 }
 

@@ -6,6 +6,7 @@ const CognitiveDriftDetector = require('../core/drift-detector');
 const GitObserver = require('../core/git-observer');
 const UserIntentEngine = require('../core/intent-engine');
 const AgentGate = require('../core/agent-gate');
+const RegressionReporter = require('../core/regression-reporter');
 
 class AetherMindMcpServer {
   constructor(workspaceDir = process.cwd()) {
@@ -99,6 +100,34 @@ class AetherMindMcpServer {
         inputSchema: { type: 'object', properties: {} }
       },
       {
+        name: 'aethermind_diff',
+        description: 'Inspect detailed git diff output of uncommitted workspace changes.',
+        inputSchema: { type: 'object', properties: {} }
+      },
+      {
+        name: 'aethermind_gate_edit',
+        description: 'Strict edit-gate before modifying code. Ensures blast radius analysis was run and checks policy rules.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            file: { type: 'string', description: 'File planned for modification' },
+            symbol: { type: 'string', description: 'Optional specific symbol' }
+          },
+          required: ['file']
+        }
+      },
+      {
+        name: 'aethermind_gate_test',
+        description: 'Test execution gate. Verifies that all test suites coupled to modified files have been executed.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            modifiedFiles: { type: 'array', items: { type: 'string' }, description: 'Modified files' },
+            executedTests: { type: 'array', items: { type: 'string' }, description: 'Tests that were executed' }
+          }
+        }
+      },
+      {
         name: 'aethermind_postflight',
         description: 'Post-edit verification gate. Validates AST syntax on all touched files, verifies test runs, and flags scope violations.',
         inputSchema: {
@@ -108,6 +137,11 @@ class AetherMindMcpServer {
             executedTests: { type: 'array', items: { type: 'string' }, description: 'Test suites that were executed' }
           }
         }
+      },
+      {
+        name: 'aethermind_report',
+        description: 'Generate comprehensive observability & regression report answering the 4 core agent reliability questions.',
+        inputSchema: { type: 'object', properties: {} }
       },
       {
         name: 'aethermind_audit',
@@ -185,11 +219,34 @@ class AetherMindMcpServer {
         return { delta, scopeValidation: validation };
       }
 
+      case 'aethermind_diff': {
+        return this.gitObserver.getWorkingTreeDiff();
+      }
+
+      case 'aethermind_gate_edit': {
+        return this.agentGate.evaluateEditGate({
+          file: args.file,
+          symbol: args.symbol || null
+        });
+      }
+
+      case 'aethermind_gate_test': {
+        return this.agentGate.evaluateTestGate({
+          modifiedFiles: args.modifiedFiles || [],
+          executedTests: args.executedTests || []
+        });
+      }
+
       case 'aethermind_postflight': {
         return this.agentGate.evaluatePostflight({
           modifiedFiles: args.modifiedFiles || [],
           executedTests: args.executedTests || []
         });
+      }
+
+      case 'aethermind_report': {
+        const reporter = new RegressionReporter(this.stateEngine);
+        return reporter.generateReport();
       }
 
       case 'aethermind_audit': {

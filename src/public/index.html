@@ -56,6 +56,10 @@
         <span class="nav-text">Flight Ledger</span>
         <span class="nav-pill pill-amber" id="nav-asm-count">0</span>
       </button>
+      <button class="nav-tab" data-view="report" id="nav-btn-report">
+        <span class="nav-icon">📊</span>
+        <span class="nav-text">Regression &amp; Observability</span>
+      </button>
     </nav>
 
     <!-- Header Actions & Telemetry -->
@@ -316,10 +320,16 @@
             </div>
             <div class="gate-btn-row">
               <button class="btn btn-primary" id="btn-run-preflight">
-                <span>Run Preflight Gate Check</span>
+                <span>1. Preflight Gate</span>
+              </button>
+              <button class="btn btn-secondary" id="btn-run-edit-gate">
+                <span>2. Edit Gate (Policy)</span>
+              </button>
+              <button class="btn btn-outline" id="btn-run-test-gate">
+                <span>3. Test Gate</span>
               </button>
               <button class="btn btn-secondary" id="btn-run-postflight">
-                <span>Run Postflight Gate Verification</span>
+                <span>4. Postflight Gate</span>
               </button>
             </div>
           </div>
@@ -630,6 +640,122 @@
 
           <div class="timeline-container" id="timeline-feed">
             <!-- Populated dynamically -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- VIEW 7: REGRESSION & OBSERVABILITY (NEW)   -->
+    <!-- ========================================== -->
+    <section class="view-panel" id="view-report">
+      <div class="overview-container">
+        <div class="section-title-row">
+          <div class="title-with-icon">
+            <span class="section-icon">📊</span>
+            <div>
+              <h2>Agent Observability &amp; Regression Intelligence</h2>
+              <p class="section-sub">Autonomous reliability flight analysis answering the 4 core epistemic safety questions.</p>
+            </div>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-outline" id="btn-export-report-md">
+              <span>📥 Download Markdown Report</span>
+            </button>
+            <button class="btn btn-primary" id="btn-refresh-report">
+              <span>↻ Refresh Analysis</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 4 KPI Blocks -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Total Flight Steps</span>
+            </div>
+            <div class="kpi-val val-emerald" id="report-stat-steps">0</div>
+            <p class="kpi-desc">Cumulative causal hypotheses, edits, and probes.</p>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Verified Premises</span>
+            </div>
+            <div class="kpi-val val-blue" id="report-stat-verified">0</div>
+            <p class="kpi-desc">Assumptions empirically confirmed via reality checks.</p>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Falsified Assumptions</span>
+            </div>
+            <div class="kpi-val val-ruby" id="report-stat-falsified">0</div>
+            <p class="kpi-desc">Assumptions refuted with empirical counter-proof.</p>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-title">Detected Regressions</span>
+            </div>
+            <div class="kpi-val val-amber" id="report-stat-regressions">0</div>
+            <p class="kpi-desc">Interventions directly resulting in failure or refuted states.</p>
+          </div>
+        </div>
+
+        <!-- The 4 Core Observability Question Cards -->
+        <div class="observability-questions-grid">
+          <!-- Question 1 -->
+          <div class="card obs-card">
+            <div class="obs-card-header">
+              <span class="obs-num">1</span>
+              <div>
+                <h3>Which modifications most often cause regressions?</h3>
+                <p class="section-sub">Interventions directly followed by refuted observations or failed test executions.</p>
+              </div>
+            </div>
+            <div class="obs-card-body" id="obs-q1-content">
+              <p class="text-muted">Loading regression trajectory...</p>
+            </div>
+          </div>
+
+          <!-- Question 2 -->
+          <div class="card obs-card">
+            <div class="obs-card-header">
+              <span class="obs-num">2</span>
+              <div>
+                <h3>Which assumptions are most often wrong?</h3>
+                <p class="section-sub">Assumptions refuted by empirical reality checks with proof.</p>
+              </div>
+            </div>
+            <div class="obs-card-body" id="obs-q2-content">
+              <p class="text-muted">Loading assumption falsification history...</p>
+            </div>
+          </div>
+
+          <!-- Question 3 -->
+          <div class="card obs-card">
+            <div class="obs-card-header">
+              <span class="obs-num">3</span>
+              <div>
+                <h3>Which files are repeatedly problematic?</h3>
+                <p class="section-sub">Source files accumulating repeated failure events or scope violations.</p>
+              </div>
+            </div>
+            <div class="obs-card-body" id="obs-q3-content">
+              <p class="text-muted">Analyzing workspace failure hotspots...</p>
+            </div>
+          </div>
+
+          <!-- Question 4 -->
+          <div class="card obs-card">
+            <div class="obs-card-header">
+              <span class="obs-num">4</span>
+              <div>
+                <h3>Which tests catch the most errors?</h3>
+                <p class="section-sub">Defensive test suites intercepting regressions during autonomous flights.</p>
+              </div>
+            </div>
+            <div class="obs-card-body" id="obs-q4-content">
+              <p class="text-muted">Aggregating test interception telemetry...</p>
+            </div>
           </div>
         </div>
       </div>

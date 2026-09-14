@@ -114,6 +114,32 @@ class GitObserver {
     }
   }
 
+  getWorkingTreeDiff(targetFile = null) {
+    if (!this.isGitRepository()) return { diff: '', targetFile };
+    const targetArg = targetFile ? ` -- "${targetFile}"` : '';
+    try {
+      const diff = execSync(`git diff HEAD${targetArg}`, {
+        cwd: this.workspaceDir,
+        stdio: ['pipe', 'pipe', 'ignore'],
+        encoding: 'utf8',
+        maxBuffer: 10 * 1024 * 1024
+      });
+      return { diff, targetFile };
+    } catch {
+      try {
+        const diff = execSync(`git diff${targetArg}`, {
+          cwd: this.workspaceDir,
+          stdio: ['pipe', 'pipe', 'ignore'],
+          encoding: 'utf8',
+          maxBuffer: 10 * 1024 * 1024
+        });
+        return { diff, targetFile };
+      } catch (err) {
+        return { diff: '', error: err.message, targetFile };
+      }
+    }
+  }
+
   takeSnapshot(label = 'baseline') {
     const status = this.getWorkingTreeStatus();
     const snapshot = {

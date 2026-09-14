@@ -123,23 +123,68 @@ class BlastRadiusAnalyzer {
     const absTarget = path.resolve(this.workspaceDir, targetFile);
     const relTarget = path.relative(this.workspaceDir, absTarget).split(path.sep).join('/');
     const targetBase = path.basename(absTarget, path.extname(absTarget));
+    const targetExt = path.extname(absTarget).toLowerCase();
     
     const allFiles = this.collectWorkspaceFiles();
     const directConsumers = [];
-    const indirectConsumers = [];
     const testSuites = [];
     const targetExports = this.extractExports(absTarget);
     const targetCaveats = this.detectDynamicCaveats(absTarget);
     const globalCaveats = [...targetCaveats];
 
+    // Check a file to see if it imports absTarget directly
+    const checksImport = (file, content) => {
+      const dir = path.dirname(file);
+      const importMatches = [
+        ...content.matchAll(/(?:from|require(?:_once)?\s*\(?|include(?:_once)?\s*\(?|import)\s*['"]([^'"]+)['"]/g),
+        ...content.matchAll(/export\s+(?:\*|\{[^}]+\})\s+from\s*['"]([^'"]+)['"]/g)
+      ];
+
+      for (const m of importMatches) {
+        const specifier = m[1];
+        if (!specifier) continue;
+
+        if (specifier.startsWith('.')) {
+          const resolved = path.resolve(dir, specifier);
+          // Check exact match or match with common extensions
+          if (resolved === absTarget ||
+              resolved + targetExt === absTarget ||
+              resolved + '.js' === absTarget ||
+              resolved + '.ts' === absTarget ||
+              resolved + '.jsx' === absTarget ||
+              resolved + '.tsx' === absTarget ||
+              resolved + '.mjs' === absTarget ||
+              path.join(resolved, 'index' + targetExt) === absTarget ||
+              path.join(resolved, 'index.js') === absTarget) {
+            return true;
+          }
+        } else {
+          // Monorepo or root-relative package import
+          if (specifier === relTarget || specifier.endsWith('/' + targetBase) || specifier === targetBase) {
+            return true;
+          }
+        }
+      }
+
+      // Python / PHP fallback
+      if (file.endsWith('.py')) {
+        const pyRegex = new RegExp(`(?:from\\s+.*${targetBase}\\s+import|import\\s+.*${targetBase})`, 'i');
+        if (pyRegex.test(content)) return true;
+      }
+      return false;
+    };
+
     for (const file of allFiles) {
       if (path.resolve(file) === absTarget) continue;
       const relPath = path.relative(this.workspaceDir, file).split(path.sep).join('/');
-      const content = fs.readFileSync(file, 'utf8');
+      let content = '';
+      try {
+        content = fs.readFileSync(file, 'utf8');
+      } catch {
+        continue;
+      }
 
-      // Check for file import or require (JS/TS + PHP)
-      const importRefRegex = new RegExp(`(?:from|require(?:_once)?\\s*\\(?|include(?:_once)?\\s*\\(?|import\\s+.*from|import)\\s*['"][^'"]*${targetBase}(?:\\.php)?['"]`, 'i');
-      const hasFileImport = importRefRegex.test(content);
+      const hasFileImport = checksImport(file, content);
 
       // Check for symbol reference if specified
       let hasSymbolRef = false;
@@ -166,11 +211,42 @@ class BlastRadiusAnalyzer {
       }
     }
 
+    // Transitive (indirect) consumers
+    const indirectConsumers = [];
+    const directSet = new Set(directConsumers.map(c => path.resolve(this.workspaceDir, c.file)));
+    const visitedTransitive = new Set([...directSet, absTarget]);
+
+    for (const direct of directConsumers) {
+      const directAbs = path.resolve(this.workspaceDir, direct.file);
+      const directBase = path.basename(directAbs, path.extname(directAbs));
+      for (const candidate of allFiles) {
+        const candAbs = path.resolve(candidate);
+        if (visitedTransitive.has(candAbs)) continue;
+        let candContent = '';
+        try {
+          candContent = fs.readFileSync(candidate, 'utf8');
+        } catch {
+          continue;
+        }
+
+        const importsDirect = candContent.includes(directBase);
+        if (importsDirect) {
+          visitedTransitive.add(candAbs);
+          const relCand = path.relative(this.workspaceDir, candidate).split(path.sep).join('/');
+          indirectConsumers.push({
+            file: relCand,
+            isTest: /test|spec|__test__/i.test(relCand),
+            via: direct.file
+          });
+        }
+      }
+    }
+
     // Calculate risk score based on blast coverage
     const totalWorkspaceCodeFiles = Math.max(1, allFiles.length);
-    const affectedRatio = (directConsumers.length + testSuites.length) / totalWorkspaceCodeFiles;
-    let riskScore = Math.min(100, Math.round(affectedRatio * 150) + (directConsumers.length * 15));
-    if (directConsumers.length === 0 && testSuites.length === 0) riskScore = 12;
+    const affectedRatio = (directConsumers.length + testSuites.length + indirectConsumers.length * 0.5) / totalWorkspaceCodeFiles;
+    let riskScore = Math.min(100, Math.round(affectedRatio * 150) + (directConsumers.length * 12) + (indirectConsumers.length * 6));
+    if (directConsumers.length === 0 && testSuites.length === 0) riskScore = 0;
 
     let riskLevel = 'LOW';
     if (riskScore > 65) riskLevel = 'CRITICAL';
@@ -195,11 +271,13 @@ class BlastRadiusAnalyzer {
         riskLevel,
         confidenceScore,
         directConsumersCount: directConsumers.length,
+        indirectConsumersCount: indirectConsumers.length,
         testSuitesCount: testSuites.length,
         totalWorkspaceFilesScanned: allFiles.length
       },
       caveats: globalCaveats,
       directConsumers,
+      indirectConsumers,
       testSuites,
       recommendedVerificationCommands: [
         testSuites.length > 0

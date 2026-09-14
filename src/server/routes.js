@@ -6,6 +6,7 @@ const CognitiveDriftDetector = require('../core/drift-detector');
 const GitObserver = require('../core/git-observer');
 const UserIntentEngine = require('../core/intent-engine');
 const AgentGate = require('../core/agent-gate');
+const RegressionReporter = require('../core/regression-reporter');
 
 function createApiRoutes(stateEngine, workspaceDir) {
   const router = express.Router();
@@ -80,7 +81,7 @@ function createApiRoutes(stateEngine, workspaceDir) {
     res.json({ message: 'User intent declared successfully', intent });
   });
 
-  // Agent Gate Endpoints (Preflight & Postflight)
+  // Agent Gate Endpoints (Preflight, Edit, Test, Postflight)
   router.post('/gate/preflight', (req, res) => {
     const { targetFiles, targetSymbols, scope, agent } = req.body;
     const report = agentGate.evaluatePreflight({
@@ -89,6 +90,18 @@ function createApiRoutes(stateEngine, workspaceDir) {
       scope,
       agent
     });
+    res.json(report);
+  });
+
+  router.post('/gate/edit', (req, res) => {
+    const { file, symbol, agent } = req.body;
+    const report = agentGate.evaluateEditGate({ file, symbol, agent });
+    res.json(report);
+  });
+
+  router.post('/gate/test', (req, res) => {
+    const { modifiedFiles, executedTests, agent } = req.body;
+    const report = agentGate.evaluateTestGate({ modifiedFiles, executedTests, agent });
     res.json(report);
   });
 
@@ -102,18 +115,32 @@ function createApiRoutes(stateEngine, workspaceDir) {
     res.json(report);
   });
 
-  // Git Delta & Status
+  // Git Delta, Status, and Working Tree Diff
   router.get('/git/delta', (req, res) => {
     const delta = gitObserver.computeDelta();
     const scopeValidation = intentEngine.validateChangeSurface(delta.rawFiles.map(f => f.file));
     res.json({ delta, scopeValidation });
   });
 
+  router.get('/git/diff', (req, res) => {
+    res.json(gitObserver.getWorkingTreeDiff());
+  });
+
   router.get('/git/status', (req, res) => {
     res.json(gitObserver.getWorkingTreeStatus());
   });
 
-  // Observability Analytics
+  // Observability & Regression Analytics (Answers the 4 questions from Section 10)
+  router.get('/report', (req, res) => {
+    const reporter = new RegressionReporter(stateEngine);
+    res.json(reporter.generateReport());
+  });
+
+  router.get('/report/markdown', (req, res) => {
+    const reporter = new RegressionReporter(stateEngine);
+    res.type('text/markdown').send(reporter.generateMarkdown());
+  });
+
   router.get('/analytics', (req, res) => {
     res.json(stateEngine.getObservabilityAnalytics());
   });
