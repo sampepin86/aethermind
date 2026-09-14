@@ -383,6 +383,25 @@
           <div class="diff-stat-preview" id="delta-diff-stat">
             <!-- Diff stat output -->
           </div>
+
+          <!-- MCP IDE Integration Box -->
+          <div class="mcp-ide-box" style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-subtle);">
+            <div class="section-title-row" style="margin-bottom: 10px;">
+              <div class="title-with-icon">
+                <span class="section-icon">🔌</span>
+                <div>
+                  <h3 style="font-size: 0.95rem; margin: 0; color: #ffffff;">MCP IDE Integration</h3>
+                  <p class="section-sub" style="font-size: 0.78rem;">Connect AetherMind tools to Antigravity, Cursor, Windsurf, or Claude.</p>
+                </div>
+              </div>
+              <button class="btn btn-sm btn-primary" id="btn-install-mcp-ide">
+                <span>⚡ Auto-Install to IDEs</span>
+              </button>
+            </div>
+            <div id="mcp-ide-targets-list" style="display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem;">
+              <!-- Populated dynamically via /api/mcp/status -->
+            </div>
+          </div>
         </div>
       </div>
     </section>

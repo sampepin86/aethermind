@@ -12,6 +12,7 @@ const UserIntentEngine = require('../src/core/intent-engine');
 const AgentGate = require('../src/core/agent-gate');
 const RegressionReporter = require('../src/core/regression-reporter');
 const AetherMindMcpServer = require('../src/mcp/server');
+const McpInstaller = require('../src/mcp/installer');
 const { loadDemoSimulation } = require('../src/server/routes');
 
 // ANSI Color Helpers
@@ -500,6 +501,70 @@ async function main() {
     }
 
     case 'mcp': {
+      const sub = args[1]; // 'install' | 'status' | 'uninstall' | undefined
+
+      if (sub === 'install') {
+        banner();
+        const installer = new McpInstaller(workspaceDir);
+        let targetIde = 'all';
+        const ideIdx = args.indexOf('--ide');
+        if (ideIdx !== -1 && args[ideIdx + 1]) {
+          targetIde = args[ideIdx + 1].toLowerCase();
+        }
+
+        console.log(`\n  ${c.bright}Installing AetherMind MCP Server to AI IDEs...${c.reset}`);
+        console.log(`  Target Workspace: ${c.cyan}${workspaceDir}${c.reset}`);
+        console.log(`  Node Executable:  ${c.gray}${process.execPath}${c.reset}\n`);
+
+        const res = installer.install(targetIde);
+        if (res.results) {
+          res.results.forEach(r => {
+            if (r.success) {
+              console.log(`  ${c.green}✔ Installed to ${r.name}${c.reset}`);
+              console.log(`    ${c.gray}Config: ${r.configPath}${c.reset}`);
+            } else {
+              console.log(`  ${c.red}✘ Failed to install to ${r.name}: ${r.error}${c.reset}`);
+            }
+          });
+        }
+        console.log(`\n  ${c.green}✔ MCP Server configuration complete.${c.reset}`);
+        console.log(`  ${c.cyan}Tip:${c.reset} Restart your IDE or start a new chat session to activate the 13 MCP tools.\n`);
+        return;
+      }
+
+      if (sub === 'uninstall') {
+        banner();
+        const installer = new McpInstaller(workspaceDir);
+        let targetIde = 'all';
+        const ideIdx = args.indexOf('--ide');
+        if (ideIdx !== -1 && args[ideIdx + 1]) {
+          targetIde = args[ideIdx + 1].toLowerCase();
+        }
+        const res = installer.uninstall(targetIde);
+        console.log(`\n  ${c.bright}Uninstalled AetherMind MCP Server from:${c.reset}`);
+        res.results.forEach(r => {
+          console.log(`  • ${r.name} (${r.uninstalled ? c.green + 'Removed' : c.red + 'Failed'})`);
+        });
+        console.log('');
+        return;
+      }
+
+      if (sub === 'status') {
+        banner();
+        const installer = new McpInstaller(workspaceDir);
+        const status = installer.getStatus();
+        console.log(`\n  ${c.bright}MCP Server IDE Integration Status:${c.reset}`);
+        console.log(`  ${c.gray}──────────────────────────────────────────────────────────────────${c.reset}`);
+        for (const [key, s] of Object.entries(status)) {
+          const detected = s.detected ? c.green + 'Detected' : c.gray + 'Not found';
+          const installed = s.installed ? c.green + '✔ Installed' : c.yellow + '○ Not configured';
+          console.log(`  ${c.bright}${s.name.padEnd(30)}${c.reset} ${installed.padEnd(25)} [${detected}${c.reset}]`);
+          console.log(`    ${c.gray}${s.configPath}${c.reset}`);
+        }
+        console.log(`\n  Run ${c.cyan}aethermind mcp install${c.reset} to automatically configure all detected IDEs.\n`);
+        return;
+      }
+
       const server = new AetherMindMcpServer(workspaceDir);
       server.startStdio();
       return;

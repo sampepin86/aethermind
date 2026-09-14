@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
   fetchInitialState();
   initBlastScanner();
   fetchGitDelta();
+  fetchMcpStatus();
 });
 
 function initUIComponents() {
@@ -109,6 +110,7 @@ function initUIComponents() {
   document.getElementById('btn-run-test-gate')?.addEventListener('click', runTestGate);
   document.getElementById('btn-run-postflight')?.addEventListener('click', runPostflightGate);
   document.getElementById('btn-refresh-delta')?.addEventListener('click', fetchGitDelta);
+  document.getElementById('btn-install-mcp-ide')?.addEventListener('click', installMcpIde);
 
   // Observability & Regression Report Buttons
   document.getElementById('btn-refresh-report')?.addEventListener('click', fetchRegressionReport);
@@ -989,4 +991,61 @@ function escapeHtml(text) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+async function fetchMcpStatus() {
+  try {
+    const res = await fetch('/api/mcp/status');
+    const data = await res.json();
+    const container = document.getElementById('mcp-ide-targets-list');
+    if (!container) return;
+
+    container.innerHTML = '';
+    for (const [key, ide] of Object.entries(data)) {
+      const item = document.createElement('div');
+      item.style.display = 'flex';
+      item.style.alignItems = 'center';
+      item.style.justifyContent = 'space-between';
+      item.style.padding = '8px 10px';
+      item.style.background = 'var(--bg-surface-elevated)';
+      item.style.borderRadius = 'var(--radius-xs)';
+      item.style.border = '1px solid var(--border-subtle)';
+
+      const statusBadge = ide.installed
+        ? '<span class="badge-green" style="padding:2px 8px;border-radius:4px;font-size:0.75rem;">✔ Active</span>'
+        : (ide.detected
+            ? '<span class="badge-amber" style="padding:2px 8px;border-radius:4px;font-size:0.75rem;">○ Ready</span>'
+            : '<span class="text-muted" style="font-size:0.75rem;">Not Found</span>');
+
+      item.innerHTML = `
+        <div>
+          <strong style="color:var(--text-main);display:block;font-size:0.85rem;">${escapeHtml(ide.name)}</strong>
+          <span style="font-size:0.72rem;color:var(--text-muted);font-family:var(--font-mono);">${escapeHtml(ide.configPath)}</span>
+        </div>
+        <div>${statusBadge}</div>
+      `;
+      container.appendChild(item);
+    }
+  } catch (err) {
+    console.error('Failed to fetch MCP status', err);
+  }
+}
+
+async function installMcpIde() {
+  const btn = document.getElementById('btn-install-mcp-ide');
+  if (btn) btn.textContent = 'Installing...';
+  try {
+    const res = await fetch('/api/mcp/install', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ide: 'all' })
+    });
+    const result = await res.json();
+    if (btn) btn.textContent = '✔ Installed!';
+    setTimeout(() => { if (btn) btn.textContent = '⚡ Auto-Install to IDEs'; }, 3000);
+    fetchMcpStatus();
+  } catch (err) {
+    if (btn) btn.textContent = '✘ Error';
+    console.error('Failed to install MCP to IDE', err);
+  }
 }

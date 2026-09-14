@@ -7,6 +7,7 @@ const GitObserver = require('../core/git-observer');
 const UserIntentEngine = require('../core/intent-engine');
 const AgentGate = require('../core/agent-gate');
 const RegressionReporter = require('../core/regression-reporter');
+const McpInstaller = require('../mcp/installer');
 
 function createApiRoutes(stateEngine, workspaceDir) {
   const router = express.Router();
@@ -15,6 +16,7 @@ function createApiRoutes(stateEngine, workspaceDir) {
   const gitObserver = new GitObserver(workspaceDir);
   const intentEngine = new UserIntentEngine(workspaceDir);
   const agentGate = new AgentGate(stateEngine, workspaceDir, intentEngine);
+  const mcpInstaller = new McpInstaller(workspaceDir);
 
   router.get('/state', (req, res) => {
     res.json(stateEngine.getState());
@@ -143,6 +145,21 @@ function createApiRoutes(stateEngine, workspaceDir) {
 
   router.get('/analytics', (req, res) => {
     res.json(stateEngine.getObservabilityAnalytics());
+  });
+
+  // MCP IDE Integration Endpoints
+  router.get('/mcp/status', (req, res) => {
+    res.json(mcpInstaller.getStatus());
+  });
+
+  router.post('/mcp/install', (req, res) => {
+    const { ide } = req.body || {};
+    res.json(mcpInstaller.install(ide || 'all'));
+  });
+
+  router.post('/mcp/uninstall', (req, res) => {
+    const { ide } = req.body || {};
+    res.json(mcpInstaller.uninstall(ide || 'all'));
   });
 
   router.post('/probe', async (req, res) => {

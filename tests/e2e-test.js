@@ -321,6 +321,31 @@ async function runTests() {
     assert(out.includes('Head Commit'));
   });
 
+  await checkAsync('GET /api/mcp/status returns IDE integration targets', async () => {
+    const res = await request('/api/mcp/status');
+    assert.strictEqual(res.status, 200);
+    assert(res.data.antigravity);
+    assert(res.data.cursor);
+  });
+
+  check('CLI "mcp status" command lists IDE targets', () => {
+    const out = execSync('node bin/aethermind.js mcp status', { encoding: 'utf8' });
+    assert(out.includes('MCP Server IDE Integration Status'));
+    assert(out.includes('Google Antigravity (AGY)'));
+    assert(out.includes('Cursor'));
+  });
+
+  check('CLI "report" command runs regression analysis', () => {
+    const out = execSync('node bin/aethermind.js report', { encoding: 'utf8' });
+    assert(out.includes('Observability & Regression Intelligence'));
+    assert(out.includes('Which modifications most often cause regressions?'));
+  });
+
+  check('CLI "diff" command inspects workspace changes', () => {
+    const out = execSync('node bin/aethermind.js diff', { encoding: 'utf8' });
+    assert(out.includes('Workspace Git Diff Inspector'));
+  });
+
   // Close server
   server.close();
 

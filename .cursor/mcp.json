@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "aethermind": {
+      "command": "/Users/samuel/.nvm/versions/node/v22.16.0/bin/node",
+      "args": [
+        "/Users/samuel/Documents/Coding/aethermind/bin/aethermind-mcp.js",
+        "/Users/samuel/Documents/Coding/aethermind"
+      ],
+      "env": {
+        "AETHERMIND_WORKSPACE": "/Users/samuel/Documents/Coding/aethermind",
+        "PATH": "/Users/samuel/.gemini/antigravity-ide/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Users/samuel/.nvm/versions/node/v22.16.0/bin"
+      }
+    }
+  }
+}

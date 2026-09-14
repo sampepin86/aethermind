@@ -18,7 +18,10 @@
     "delta": "node bin/aethermind.js delta",
     "diff": "node bin/aethermind.js diff",
     "report": "node bin/aethermind.js report",
-    "mcp": "node bin/aethermind-mcp.js"
+    "mcp": "node bin/aethermind-mcp.js",
+    "mcp:install": "node bin/aethermind.js mcp install",
+    "mcp:status": "node bin/aethermind.js mcp status",
+    "mcp:uninstall": "node bin/aethermind.js mcp uninstall"
   },
   "keywords": [
     "ai-agent",
